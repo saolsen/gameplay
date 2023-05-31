@@ -1,0 +1,51 @@
+{% if main_only %}
+{% block main %}{% endblock %}
+{% else %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <link href="/style.css" rel="stylesheet">
+        <title>Steve Monster</title>
+    </head>
+    <body>
+        <nav>
+            <ul>
+                <li><a hx-boost="true" hx-target="#main" href="/"><strong>Steve Monster</strong></a></li>
+            </ul>
+            <ul>
+                <li>
+                    <a id="signup" href="#" role="button" onclick="window.Clerk.openSignUp({})">Sign Up</a>
+                </li>
+                <li>
+                    <a id="signin" href="#" role="button" onclick="window.Clerk.openSignIn()">Sign In</a>
+                </li>
+                <li>
+                    <a id="applink" href="/app" role="button" hidden>Dashboard</a>
+                </li>
+            </ul>
+        </nav>
+        <main id="main">
+            {% block main %}{% endblock %}
+        </main>
+        <script src="https://unpkg.com/htmx.org@1.8.6"></script>
+        <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+        <script src="https://unpkg.com/htmx.org/dist/ext/debug.js"></script>
+        <script>
+            async function loadClerk() {
+                await window.Clerk.load();
+                if (window.Clerk.user) {
+                    document.getElementById("applink").hidden = false;
+                    document.getElementById("signup").hidden = true;
+                    document.getElementById("signin").hidden = true;
+                }
+            }
+        </script>
+        <script async crossorigin="anonymous" data-clerk-publishable-key="{{ clerk_pub_api_key }}" onload="loadClerk()"
+                src="https://enhanced-hagfish-21.clerk.accounts.dev/npm/@clerk/clerk-js@4/dist/clerk.browser.js"
+                type="text/javascript">
+        </script>
+    </body>
+</html>
+{% endif %}
