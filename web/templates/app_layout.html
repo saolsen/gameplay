@@ -127,6 +127,7 @@
             await window.Clerk.load();
             if (window.Clerk.user) {
                 const user_div = document.getElementById("clerk-user");
+                user_div.innerHTML = "";
                 window.Clerk.mountUserButton(user_div);
             } else {
                 window.location.href = "/"
