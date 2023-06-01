@@ -1,6 +1,6 @@
 use axum::body::Body;
-use axum::http::{header, Request, Response, StatusCode};
-use axum::routing::get;
+use axum::http::{header, Method, Request, Response, StatusCode};
+use axum::routing::{get, MethodFilter, on, post};
 use axum::Router;
 use std::sync::Arc;
 use std::time::Duration;
@@ -71,8 +71,16 @@ async fn main() {
         .route("/", get(web::root))
         .route("/app", get(web::app))
         .route(
+            "/app/games/connect4/matches/create_match",
+            post(web::connect4_create_match),
+        )
+        .route(
             "/app/games/connect4/matches/create_match/selects",
             get(web::connect4_selects),
+        )
+        .route(
+            "/app/games/connect4/matches/:match_id",
+            get(web::connect4_match),
         )
         .with_state(state)
         .layer(

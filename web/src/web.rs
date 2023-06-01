@@ -7,6 +7,8 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use serde::Deserialize;
 use std::sync::Arc;
+use axum::{Form, http};
+use serde_json::json;
 
 #[derive(Debug)]
 pub struct AppState {
@@ -81,6 +83,28 @@ pub async fn app<'a>(
 }
 
 #[derive(Deserialize, Debug)]
+pub struct CreateMatchFormData {
+    pub player_type_1: String,
+    pub player_name_1: String,
+    pub player_type_2: String,
+    pub player_name_2: String,
+}
+
+#[tracing::instrument(skip(_state))]
+pub async fn connect4_create_match<'a>(
+    auth_user: types::UserRecord,
+    State(_state): State<Arc<AppState>>,
+    Form(form): Form<CreateMatchFormData>,
+) -> impl IntoResponse {
+    // todo: on error form should have same things selected as before
+    let form = templates::CreateMatchForm {
+        auth_user
+    };
+    let location =json!({"path": format!("/app/games/connect4/matches/{}", 123), "target": "#main"}) ;
+    ([("hx-location", location.to_string())], form.into_response())
+}
+
+#[derive(Deserialize, Debug)]
 pub struct SelectsQuery {
     pub player_type_1: Option<String>,
     pub player_type_2: Option<String>,
@@ -139,17 +163,6 @@ pub async fn connect4_selects<'a>(
             )
         }
         "agent" => {
-            /* <label for="countries" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Select
-                an option</label>
-            <select id="countries"
-                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                <option selected>Choose a country</option>
-                <option value="US">United States</option>
-                <option value="CA">Canada</option>
-                <option value="FR">France</option>
-                <option value="DE">Germany</option>
-            </select> */
-
             let options = vec![
                 format!(
                     r#"<option value="{}/{}">{}/{}</option>"#,
@@ -183,4 +196,16 @@ pub async fn connect4_selects<'a>(
     };
 
     (StatusCode::OK, Html(selects))
+}
+
+#[tracing::instrument(skip(app_layout, _state))]
+pub async fn connect4_match<'a>(
+    _auth_user: types::UserRecord,
+    app_layout: templates::AppLayout<'a>,
+    State(_state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let template = templates::Connect4Match {
+        _layout: &app_layout,
+    };
+    template.into_response()
 }

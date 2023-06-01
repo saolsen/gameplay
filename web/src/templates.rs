@@ -89,12 +89,32 @@ impl<'a> FromRequestParts<Arc<web::AppState>> for AppLayout<'a> {
 }
 
 #[derive(Template)]
+#[template(path = "create_match_form.html")]
+pub struct CreateMatchForm {
+    pub auth_user: types::UserRecord,
+}
+
+#[derive(Template)]
 #[template(path = "app_index.html")]
 pub struct AppIndex<'a> {
     pub _layout: &'a AppLayout<'a>,
 }
 
 impl<'a> Deref for AppIndex<'a> {
+    type Target = AppLayout<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        self._layout
+    }
+}
+
+#[derive(Template)]
+#[template(path = "connect4_match.html")]
+pub struct Connect4Match<'a> {
+    pub _layout: &'a AppLayout<'a>,
+}
+
+impl<'a> Deref for Connect4Match<'a> {
     type Target = AppLayout<'a>;
 
     fn deref(&self) -> &Self::Target {
