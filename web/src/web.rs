@@ -77,7 +77,7 @@ pub async fn app<'a>(
     State(_state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
     let hello = templates::AppIndex {
-        _layout: &app_layout,
+        _layout: app_layout,
     };
     hello.into_response()
 }
@@ -110,10 +110,9 @@ pub struct SelectsQuery {
     pub player_type_2: Option<String>,
 }
 
-#[tracing::instrument(skip(app_layout, _state))]
+#[tracing::instrument(skip(_state))]
 pub async fn connect4_selects<'a>(
     auth_user: types::UserRecord,
-    app_layout: templates::AppLayout<'a>,
     State(_state): State<Arc<AppState>>,
     query: Query<SelectsQuery>,
 ) -> impl IntoResponse {
@@ -204,8 +203,46 @@ pub async fn connect4_match<'a>(
     app_layout: templates::AppLayout<'a>,
     State(_state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
+    let mut m = types::Match {
+        id: 123,
+        game: types::Game::Connect4,
+        players: vec![
+            types::Player::User(types::User {
+                username: "user1".to_string(),
+            }),
+            types::Player::Agent(types::Agent {
+                game: types::Game::Connect4,
+                username: "user2".to_string(),
+                agentname: "agent1".to_string(),
+            }),
+        ],
+        turns: vec![
+            types::Turn {
+                number: 0,
+                player: None,
+                action: None,
+                status: types::Status::InProgress {next_player: 0},
+            },
+            types::Turn {
+                number: 1,
+                player: Some(0),
+                action: Some(types::Connect4Action { column: 0 }),
+                status: types::Status::InProgress {next_player: 1},
+                //status: types::Status::Over {winner: Some(0)},
+            },
+        ],
+        turn: 1,
+        state: types::Connect4State{
+            board: vec![None; 42],
+        }
+    };
+
+    m.state.board[0] = Some(0);
+    m.state.board[1] = Some(1);
+
     let template = templates::Connect4Match {
-        _layout: &app_layout,
+        _layout: app_layout,
+        connect4_match: m,
     };
     template.into_response()
 }

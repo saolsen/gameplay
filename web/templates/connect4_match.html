@@ -4,16 +4,102 @@
 <div class="px-4 pt-6 2xl:px-0">
     <div class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
         <!-- Match -->
-        <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+        <div
+            class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex-shrink-0">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Match</h2>
                 </div>
             </div>
-            <span>Coming Soon</span>
+
+            {% let turn = connect4_match.turns[connect4_match.turn] %}
+
+            {% match turn.status %}
+
+            {% when types::Status::Over with {winner} %}
+
+            {% match winner %}
+            {% when Some with (0) %}
+            <h2>Blue Wins</h2>
+            {% when Some with (1) %}
+            <h2>Red Wins</h2>
+            {% when None %}
+            <h2>It's a Tie</h2>
+            {% else %}
+            {% endmatch %}
+
+            {% when types::Status::InProgress with {next_player} %}
+
+            {# todo check if it's my turn or not #}
+
+            {% match next_player %}
+            {% when 0 %}
+            <h2>Blue's Turn</h2>
+            {% when 1 %}
+            <h2>Red's Turn</h2>
+            {% else %}
+            {% endmatch %}
+
+
+            {% else %}
+            {% endmatch %}
+
+
+
+
+            <svg width="350px" viewBox="0 0 700 700" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <pattern id="cell-pattern" patternUnits="userSpaceOnUse" width="100" height="100">
+                        <circle cx="50" cy="50" r="45" fill="black"></circle>
+                    </pattern>
+                    <mask id="cell-mask">
+                        <rect width="100" height="600" fill="white"></rect>
+                        <rect width="100" height="600" fill="url(#cell-pattern)"></rect>
+                    </mask>
+                </defs>
+
+                {% match turn.status %}
+                {% when types::Status::InProgress with {next_player} %}
+
+                <svg x="0" y="0">
+                    {% for i in 0..7 %}
+                    <g>
+                        <circle class="turn-marker-{{ next_player }}" cx="{{ i*100 + 50 }}" cy="50" r="45">
+                        </circle>
+                    </g>
+                    {% endfor %}
+                </svg>
+
+                {% else %}
+                {% endmatch %}
+
+
+                {% for col in 0..7 %}
+                <svg x="{{100 * col}}" y="100">
+                    {% for row in 0..6 %}
+                    {% let cell = connect4_match.state.board[col * 6 + row].clone() %}
+
+                    {% match cell %}
+                    {% when Some with (0) %}
+                    <circle cx="50" cy="{{ 550 - row * 100 }}" r="45" fill="#254689"></circle>
+                    {% when Some with (1) %}
+                    <circle cx="50" cy="{{550-row*100}}" r="45" fill="#FC7E69"></circle>
+                    {% when None %}
+                    {# empty slot #}
+                    {% else %}
+                    {% endmatch %}
+                    {% endfor %}
+                    <rect width="100" height="600" fill="cadetblue" mask="url(#cell-mask)"></rect>
+                </svg>
+                {% endfor %}
+            </svg>
+
+
+
         </div>
         <!-- Turns -->
-        <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+        <div
+            class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex-shrink-0">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Turns</h2>

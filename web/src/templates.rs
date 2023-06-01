@@ -97,27 +97,28 @@ pub struct CreateMatchForm {
 #[derive(Template)]
 #[template(path = "app_index.html")]
 pub struct AppIndex<'a> {
-    pub _layout: &'a AppLayout<'a>,
+    pub _layout: AppLayout<'a>,
 }
 
 impl<'a> Deref for AppIndex<'a> {
     type Target = AppLayout<'a>;
 
     fn deref(&self) -> &Self::Target {
-        self._layout
+        &self._layout
     }
 }
 
 #[derive(Template)]
 #[template(path = "connect4_match.html")]
 pub struct Connect4Match<'a> {
-    pub _layout: &'a AppLayout<'a>,
+    pub _layout: AppLayout<'a>,
+    pub connect4_match: types::Match<types::Connect4Action, types::Connect4State>,
 }
 
 impl<'a> Deref for Connect4Match<'a> {
     type Target = AppLayout<'a>;
 
     fn deref(&self) -> &Self::Target {
-        self._layout
+        &self._layout
     }
 }
