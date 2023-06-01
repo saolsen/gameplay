@@ -70,6 +70,10 @@ async fn main() {
         .route("/refresh", get(web::refresh))
         .route("/", get(web::root))
         .route("/app", get(web::app))
+        .route(
+            "/app/games/connect4/matches/create_match/selects",
+            get(web::connect4_selects),
+        )
         .with_state(state)
         .layer(
             tower_http::trace::TraceLayer::new_for_http()
