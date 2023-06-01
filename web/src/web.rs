@@ -3,12 +3,12 @@ use askama_axum::IntoResponse as _;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse};
+use axum::{http, Form};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use serde::Deserialize;
-use std::sync::Arc;
-use axum::{Form, http};
 use serde_json::json;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct AppState {
@@ -97,11 +97,13 @@ pub async fn connect4_create_match<'a>(
     Form(form): Form<CreateMatchFormData>,
 ) -> impl IntoResponse {
     // todo: on error form should have same things selected as before
-    let form = templates::CreateMatchForm {
-        auth_user
-    };
-    let location =json!({"path": format!("/app/games/connect4/matches/{}", 123), "target": "#main"}) ;
-    ([("hx-location", location.to_string())], form.into_response())
+    let form = templates::CreateMatchForm { auth_user };
+    let location =
+        json!({"path": format!("/app/games/connect4/matches/{}", 123), "target": "#main"});
+    (
+        [("hx-location", location.to_string())],
+        form.into_response(),
+    )
 }
 
 #[derive(Deserialize, Debug)]
@@ -210,10 +212,8 @@ pub async fn connect4_match<'a>(
             types::Player::User(types::User {
                 username: "user1".to_string(),
             }),
-            types::Player::Agent(types::Agent {
-                game: types::Game::Connect4,
-                username: "user2".to_string(),
-                agentname: "agent1".to_string(),
+            types::Player::User(types::User {
+                username: "steve".to_string(),
             }),
         ],
         turns: vec![
@@ -221,20 +221,77 @@ pub async fn connect4_match<'a>(
                 number: 0,
                 player: None,
                 action: None,
-                status: types::Status::InProgress {next_player: 0},
+                status: types::Status::InProgress { next_player: 0 },
             },
             types::Turn {
                 number: 1,
                 player: Some(0),
                 action: Some(types::Connect4Action { column: 0 }),
-                status: types::Status::InProgress {next_player: 1},
-                //status: types::Status::Over {winner: Some(0)},
+                status: types::Status::InProgress { next_player: 1 },
+                //status: types::Status::Over {winner: None},
             },
         ],
         turn: 1,
-        state: types::Connect4State{
+        state: types::Connect4State {
             board: vec![None; 42],
-        }
+        },
+    };
+
+    m.state.board[0] = Some(0);
+    m.state.board[1] = Some(1);
+
+    let template = templates::Connect4Match {
+        _layout: app_layout,
+        connect4_match: m,
+    };
+    template.into_response()
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CreateTurnFormData {
+    pub player: usize,
+    pub column: usize,
+}
+
+#[tracing::instrument(skip(app_layout, _state))]
+pub async fn connect4_match_create_turn<'a>(
+    _auth_user: types::UserRecord,
+    app_layout: templates::AppLayout<'a>,
+    State(_state): State<Arc<AppState>>,
+    Form(form): Form<CreateTurnFormData>,
+) -> impl IntoResponse {
+    println!("{:?}", form);
+
+    let mut m = types::Match {
+        id: 123,
+        game: types::Game::Connect4,
+        players: vec![
+            types::Player::User(types::User {
+                username: "user1".to_string(),
+            }),
+            types::Player::User(types::User {
+                username: "steve".to_string(),
+            }),
+        ],
+        turns: vec![
+            types::Turn {
+                number: 0,
+                player: None,
+                action: None,
+                status: types::Status::InProgress { next_player: 0 },
+            },
+            types::Turn {
+                number: 1,
+                player: Some(0),
+                action: Some(types::Connect4Action { column: 0 }),
+                //status: types::Status::InProgress { next_player: 1 },
+                status: types::Status::Over {winner: None},
+            },
+        ],
+        turn: 1,
+        state: types::Connect4State {
+            board: vec![None; 42],
+        },
     };
 
     m.state.board[0] = Some(0);

@@ -1,5 +1,7 @@
-{% if main_only %}
+{% if htmx_target == "main" %}
 {% block main %}{% endblock %}
+{% else if htmx_target == "state" %}
+{% block state %}{% endblock %}
 {% else %}
 <!DOCTYPE html>
 <html lang="en">

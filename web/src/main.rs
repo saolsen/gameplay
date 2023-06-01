@@ -82,6 +82,10 @@ async fn main() {
             "/app/games/connect4/matches/:match_id",
             get(web::connect4_match),
         )
+        .route(
+            "/app/games/connect4/matches/:match_id/turns/create_turn",
+            post(web::connect4_match_create_turn),
+        )
         .with_state(state)
         .layer(
             tower_http::trace::TraceLayer::new_for_http()

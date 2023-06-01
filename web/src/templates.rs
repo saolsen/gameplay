@@ -21,7 +21,7 @@ pub struct Refresh<'a> {
 #[template(path = "web_layout.html")]
 pub struct WebLayout<'a> {
     pub clerk_pub_api_key: &'a str,
-    pub main_only: bool,
+    pub htmx_target: String,
 }
 
 #[async_trait]
@@ -32,16 +32,14 @@ where
     type Rejection = (StatusCode, &'static str);
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let mut main_only = false;
+        let mut htmx_target = "".to_owned();
         if let Some(target) = parts.headers.get("hx-target") {
-            if target == "main" {
-                main_only = true;
-            }
+            htmx_target = target.to_str().unwrap().to_owned();
         }
 
         return Ok(WebLayout {
             clerk_pub_api_key: &config::CLERK_PUB_API_KEY,
-            main_only,
+            htmx_target,
         });
     }
 }
@@ -52,9 +50,7 @@ pub struct AppLayout<'a> {
     pub clerk_pub_api_key: &'a str,
     // The user making the request. All app routes require authentication
     pub auth_user: types::UserRecord,
-    // True if this is an htmx request that is replacing #main
-    // This lets the template know to only render the #main div
-    pub main_only: bool,
+    pub htmx_target: String,
 }
 
 #[async_trait]
@@ -73,17 +69,15 @@ impl<'a> FromRequestParts<Arc<web::AppState>> for AppLayout<'a> {
             }
         };
 
-        let mut main_only = false;
+        let mut htmx_target = "".to_owned();
         if let Some(target) = parts.headers.get("hx-target") {
-            if target == "main" {
-                main_only = true;
-            }
+            htmx_target = target.to_str().unwrap().to_owned();
         }
 
         return Ok(AppLayout {
             clerk_pub_api_key: &config::CLERK_PUB_API_KEY,
             auth_user,
-            main_only,
+            htmx_target
         });
     }
 }

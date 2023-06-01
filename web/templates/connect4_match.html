@@ -4,8 +4,9 @@
 <div class="px-4 pt-6 2xl:px-0">
     <div class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
         <!-- Match -->
-        <div
+        <div id="state"
             class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+            {% block state %}
             <div class="flex items-center justify-between mb-4">
                 <div class="flex-shrink-0">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Match</h2>
@@ -30,8 +31,6 @@
 
             {% when types::Status::InProgress with {next_player} %}
 
-            {# todo check if it's my turn or not #}
-
             {% match next_player %}
             {% when 0 %}
             <h2>Blue's Turn</h2>
@@ -40,12 +39,22 @@
             {% else %}
             {% endmatch %}
 
+            {% let player = connect4_match.players.get(next_player.clone()).unwrap() %}
+            {% match player %}
+            {% when types::Player::User(user) %}
+
+            {% if user.username == auth_user.username %}
+            <h2>That's You</h2>
+            {% else %}
+            <h2>Waiting on {{ user.username }}</h2>
+            {% endif %}
+
+            {% when types::Player::Agent(agent) %}
+            <h2>Waiting on {{ agent.username }}/{{ agent.agentname }}</h2>
+            {% endmatch %}
 
             {% else %}
             {% endmatch %}
-
-
-
 
             <svg width="350px" viewBox="0 0 700 700" xmlns="http://www.w3.org/2000/svg">
                 <defs>
@@ -61,14 +70,25 @@
                 {% match turn.status %}
                 {% when types::Status::InProgress with {next_player} %}
 
+                {% let player = connect4_match.players.get(next_player.clone()).unwrap() %}
+                {% match player %}
+                {% when types::Player::User(user) %}
+                {% if user.username == auth_user.username %}
                 <svg x="0" y="0">
                     {% for i in 0..7 %}
                     <g>
-                        <circle class="turn-marker-{{ next_player }}" cx="{{ i*100 + 50 }}" cy="50" r="45">
+                        <circle cx="{{ i*100 + 50 }}" cy="50" r="45"
+                            hx-post="/app/games/connect4/matches/{{connect4_match.id}}/turns/create_turn"
+                            hx-target="#state" hx-vals='{"player": {{ next_player }}, "column": {{i}}}'>
                         </circle>
                     </g>
                     {% endfor %}
                 </svg>
+                {% else %}
+                {% endif %}
+                {% when types::Player::Agent(agent) %}
+                {% endmatch %}
+
 
                 {% else %}
                 {% endmatch %}
@@ -81,7 +101,7 @@
 
                     {% match cell %}
                     {% when Some with (0) %}
-                    <circle cx="50" cy="{{ 550 - row * 100 }}" r="45" fill="#254689"></circle>
+                    <circle cx="50" cy="{{550-row*100}}" r="45" fill="#254689"></circle>
                     {% when Some with (1) %}
                     <circle cx="50" cy="{{550-row*100}}" r="45" fill="#FC7E69"></circle>
                     {% when None %}
@@ -94,8 +114,7 @@
                 {% endfor %}
             </svg>
 
-
-
+            {% endblock state %}
         </div>
         <!-- Turns -->
         <div

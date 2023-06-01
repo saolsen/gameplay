@@ -1,4 +1,4 @@
-{% if main_only %}
+{% if htmx_target == "main" %}
 {% block main %}{% endblock %}
 {% else %}
 <!DOCTYPE html>
