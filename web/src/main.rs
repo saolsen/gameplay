@@ -14,6 +14,7 @@ mod migrations;
 mod templates;
 mod types;
 mod web;
+mod forms;
 
 #[tokio::main]
 async fn main() {

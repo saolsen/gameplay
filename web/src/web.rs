@@ -9,6 +9,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
+use crate::templates::{CreateMatchFormSelects, CreateMatchOptions};
 
 #[derive(Debug)]
 pub struct AppState {
@@ -72,14 +73,26 @@ pub async fn root<'a>(
 
 #[tracing::instrument(skip(app_layout, _state))]
 pub async fn app<'a>(
-    _auth_user: types::UserRecord,
+    auth_user: types::UserRecord,
     app_layout: templates::AppLayout<'a>,
     State(_state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    let hello = templates::AppIndex {
+    let index = templates::AppIndex {
         _layout: app_layout,
+        create_match: templates::CreateMatchForm {
+            blue: templates::CreateMatchFormSelects {
+                i: 1,
+                options: templates::CreateMatchOptions::Me(auth_user.username.clone()),
+                selected: Some(auth_user.username.clone())
+            },
+            red: templates::CreateMatchFormSelects {
+                i: 2,
+                options: templates::CreateMatchOptions::User(vec!["gabe".to_string(), "steve".to_string()]),
+                selected: Some("steve".to_owned()),
+            }
+        },
     };
-    hello.into_response()
+    index.into_response()
 }
 
 #[derive(Deserialize, Debug)]
@@ -96,13 +109,38 @@ pub async fn connect4_create_match<'a>(
     State(_state): State<Arc<AppState>>,
     Form(form): Form<CreateMatchFormData>,
 ) -> impl IntoResponse {
-    // todo: on error form should have same things selected as before
-    let form = templates::CreateMatchForm { auth_user };
+    // two users that are not you is not allowed
+    // make sure user isn't you, that's hackers
+
+    //todo: can write this now
+    // STEVE THIS NEXT
+
+    match form.player_type_1.as_str() {
+        "me" => {
+            println!("me")
+        }
+        "user" => {
+            println!("user")
+        }
+        "agent" => {
+            println!("agent")
+        }
+        _ => {
+            println!("wat: {}", form.player_type_1)
+        }
+    }
+
+
+    // todo: on error, form should have same things selected as before
+    // let form = templates::CreateMatchForm { auth_user,
+    // blue:
+    //
+    // };
     let location =
         json!({"path": format!("/app/games/connect4/matches/{}", 123), "target": "#main"});
     (
         [("hx-location", location.to_string())],
-        form.into_response(),
+        "todo",
     )
 }
 
@@ -118,16 +156,14 @@ pub async fn connect4_selects<'a>(
     State(_state): State<Arc<AppState>>,
     query: Query<SelectsQuery>,
 ) -> impl IntoResponse {
-    let (player_type, n, player) = match (&query.player_type_1, &query.player_type_2) {
+    let (player_type, n) = match (&query.player_type_1, &query.player_type_2) {
         (Some(player_type_1), None) => {
             let n = 1;
-            let player = "blue";
-            (player_type_1, n, player)
+            (player_type_1, n)
         }
         (None, Some(player_type_2)) => {
             let n = 2;
-            let player = "red";
-            (player_type_2, n, player)
+            (player_type_2, n)
         }
         _ => {
             return (
@@ -137,66 +173,31 @@ pub async fn connect4_selects<'a>(
         }
     };
 
-    let selects = match player_type.as_str() {
+    let options = match player_type.as_str() {
         "me" => {
-            format!(
-                r#"<input name="player_name_1" type="hidden" value="{}">"#,
-                auth_user.username
-            )
-        }
+            CreateMatchOptions::Me(auth_user.username.clone())
+        },
         "user" => {
-            let options = vec![
-                format!(r#"<option value="{}">{}</option>"#, "steveo", "steveo"),
-                format!(r#"<option value="{}">{}</option>"#, "gabe", "gabe"),
-            ];
-
-            format!(
-                r#"
-                <label for="{}_player" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">username</label>
-                <select name="player_name_{}" id="{}_player" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                    {}
-                </select>
-                "#,
-                player,
-                n,
-                player,
-                options.join("\n")
-            )
-        }
+            CreateMatchOptions::User(vec!["gabe".to_string(), "steve".to_string()])
+        },
         "agent" => {
-            let options = vec![
-                format!(
-                    r#"<option value="{}/{}">{}/{}</option>"#,
-                    "steveo", "random", "steveo", "random"
-                ),
-                format!(
-                    r#"<option value="{}/{}">{}/{}</option>"#,
-                    "gabe", "smart", "gabe", "smart"
-                ),
-            ];
-
-            format!(
-                r#"
-                <label for="{}_player" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">agentname</label>
-                <select name="player_name_{}" id="{}_player" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                    {}
-                </select>
-                "#,
-                player,
-                n,
-                player,
-                options.join("\n")
-            )
-        }
+            CreateMatchOptions::Agent(vec!["random".to_string(), "minimax".to_string()])
+        },
         _ => {
             return (
                 StatusCode::BAD_REQUEST,
-                Html("Invalid player type".to_owned()),
+                Html("Invalid query params".to_owned()),
             );
         }
     };
 
-    (StatusCode::OK, Html(selects))
+    let selects = CreateMatchFormSelects{
+        i: n,
+        options,
+        selected: None,
+    };
+
+    (StatusCode::OK, Html(selects.to_string()))
 }
 
 #[tracing::instrument(skip(app_layout, _state))]

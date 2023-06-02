@@ -7,7 +7,12 @@
                     <input id="blue_me" type="radio" value="me" name="player_type_1"
                         hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#blue_name"
                         class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
-                        checked>
+                        {% match blue.options %}
+                        {% when CreateMatchOptions::Me with (_) %}
+                            checked
+                        {% else %}
+                        {% endmatch %}
+                        >
                     <label for="blue_me"
                         class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Me</label>
                 </div>
@@ -16,7 +21,13 @@
                 <div class="flex items-center pl-3">
                     <input id="blue_user" type="radio" value="user" name="player_type_1"
                         hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#blue_name"
-                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500">
+                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
+                        {% match blue.options %}
+                        {% when CreateMatchOptions::User with (_) %}
+                            checked
+                        {% else %}
+                        {% endmatch %}
+                        >
                     <label for="blue_user"
                         class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Other
                         Human</label>
@@ -26,7 +37,13 @@
                 <div class="flex items-center pl-3">
                     <input id="blue_agent" type="radio" value="agent" name="player_type_1"
                         hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#blue_name"
-                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500">
+                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
+                        {% match blue.options %}
+                        {% when CreateMatchOptions::Agent with (_) %}
+                            checked
+                        {% else %}
+                        {% endmatch %}
+                        >
                     <label for="blue_agent"
                         class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Agent</label>
                 </div>
@@ -34,7 +51,7 @@
         </ul>
     </div>
     <div id="blue_name" class="mb-6">
-        <input name="player_name_1" type="hidden" value="{{ auth_user.username }}">
+        {{blue|safe}}
     </div>
     <div class="mb-6">
         <h3 class="mb-4 font-semibold text-gray-900 dark:text-white">Red Player</h3>
@@ -44,7 +61,12 @@
                     <input id="red_me" type="radio" value="me" name="player_type_2"
                         hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#red_name"
                         class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
-                        checked>
+                        {% match red.options %}
+                        {% when CreateMatchOptions::Me with (_) %}
+                            checked
+                        {% else %}
+                        {% endmatch %}
+                        >
                     <label for="red_me"
                         class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Me</label>
                 </div>
@@ -53,7 +75,13 @@
                 <div class="flex items-center pl-3">
                     <input id="red_user" type="radio" value="user" name="player_type_2"
                         hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#red_name"
-                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500">
+                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
+                        {% match red.options %}
+                        {% when CreateMatchOptions::User with (_) %}
+                            checked
+                        {% else %}
+                        {% endmatch %}
+                        >
                     <label for="red_user"
                         class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Other
                         Human</label>
@@ -63,7 +91,13 @@
                 <div class="flex items-center pl-3">
                     <input id="red_agent" type="radio" value="agent" name="player_type_2"
                         hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#red_name"
-                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500">
+                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
+                        {% match red.options %}
+                        {% when CreateMatchOptions::Agent with (_) %}
+                            checked
+                        {% else %}
+                        {% endmatch %}
+                        >
                     <label for="red_agent"
                         class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Agent</label>
                 </div>
@@ -71,7 +105,7 @@
         </ul>
     </div>
     <div id="red_name" class="mb-6">
-        <input name="player_name_2" type="hidden" value="{{ auth_user.username }}">
+        {{red|safe}}
     </div>
     <button type="submit"
         class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Play</button>
