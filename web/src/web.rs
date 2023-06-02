@@ -285,7 +285,7 @@ pub async fn connect4_match_create_turn<'a>(
                 player: Some(0),
                 action: Some(types::Connect4Action { column: 0 }),
                 //status: types::Status::InProgress { next_player: 1 },
-                status: types::Status::Over {winner: None},
+                status: types::Status::Over { winner: None },
             },
         ],
         turn: 1,

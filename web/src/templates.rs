@@ -77,7 +77,7 @@ impl<'a> FromRequestParts<Arc<web::AppState>> for AppLayout<'a> {
         return Ok(AppLayout {
             clerk_pub_api_key: &config::CLERK_PUB_API_KEY,
             auth_user,
-            htmx_target
+            htmx_target,
         });
     }
 }
