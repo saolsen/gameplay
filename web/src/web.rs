@@ -3,7 +3,7 @@ use askama_axum::IntoResponse as _;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse};
-use axum::{http, Form};
+use axum::Form;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use serde::Deserialize;
@@ -221,17 +221,16 @@ pub async fn connect4_match<'a>(
                 number: 0,
                 player: None,
                 action: None,
-                status: types::Status::InProgress { next_player: 0 },
+
             },
             types::Turn {
                 number: 1,
                 player: Some(0),
                 action: Some(types::Connect4Action { column: 0 }),
-                status: types::Status::InProgress { next_player: 1 },
-                //status: types::Status::Over {winner: None},
             },
         ],
         turn: 1,
+        status: types::Status::InProgress { next_player: 1 },
         state: types::Connect4State {
             board: vec![None; 42],
         },
@@ -278,17 +277,15 @@ pub async fn connect4_match_create_turn<'a>(
                 number: 0,
                 player: None,
                 action: None,
-                status: types::Status::InProgress { next_player: 0 },
             },
             types::Turn {
                 number: 1,
                 player: Some(0),
                 action: Some(types::Connect4Action { column: 0 }),
-                //status: types::Status::InProgress { next_player: 1 },
-                status: types::Status::Over { winner: None },
             },
         ],
         turn: 1,
+        status: types::Status::Over { winner: None },
         state: types::Connect4State {
             board: vec![None; 42],
         },

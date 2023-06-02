@@ -12,10 +12,7 @@
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Match</h2>
                 </div>
             </div>
-
-            {% let turn = connect4_match.turns[connect4_match.turn] %}
-
-            {% match turn.status %}
+            {% match connect4_match.status %}
 
             {% when types::Status::Over with {winner} %}
 
@@ -67,7 +64,7 @@
                     </mask>
                 </defs>
 
-                {% match turn.status %}
+                {% match connect4_match.status %}
                 {% when types::Status::InProgress with {next_player} %}
 
                 {% let player = connect4_match.players.get(next_player.clone()).unwrap() %}

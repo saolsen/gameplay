@@ -64,7 +64,6 @@ pub struct Turn<A> {
     pub number: usize,
     pub player: Option<usize>,
     pub action: Option<A>,
-    pub status: Status,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -74,8 +73,9 @@ pub struct Match<A, S> {
     pub players: Vec<Player>,
     pub turns: Vec<Turn<A>>,
     pub turn: usize,
-    // state of turns[turn], we only pull one state
-    // but they're stored on the turn in the database
+    // status and state of turns[turn]
+    // we only pull one, but they're stored on the turn in the database
+    pub status: Status,
     pub state: S,
 }
 
@@ -103,16 +103,15 @@ mod tests {
                     number: 0,
                     player: None,
                     action: None,
-                    status: Status::InProgress { next_player: 0 },
                 },
                 Turn {
                     number: 1,
                     player: Some(0),
                     action: Some(Connect4Action { column: 0 }),
-                    status: Status::InProgress { next_player: 1 },
                 },
             ],
             turn: 0,
+            status: Status::InProgress { next_player: 1 },
             state: Connect4State {
                 board: vec![None; 42],
             },

@@ -1,6 +1,6 @@
 use axum::body::Body;
-use axum::http::{header, Method, Request, Response, StatusCode};
-use axum::routing::{get, on, post, MethodFilter};
+use axum::http::{header, Request, Response, StatusCode};
+use axum::routing::{get, post};
 use axum::Router;
 use std::sync::Arc;
 use std::time::Duration;
