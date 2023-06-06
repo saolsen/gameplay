@@ -91,7 +91,8 @@ pub async fn connect4_create_match<'a>(
     // todo: Validate the player names and agent names as being real.
     // these will be text box auto complete fields eventually, not selects so
     // they need to check their inputs.
-    let result = tokio::task::spawn_blocking(move || {
+    
+    tokio::task::spawn_blocking(move || {
         let conn = state.pool.get().unwrap();
         if let Err(err_form) = form.validate(&auth_user, &conn) {
             return (HeaderMap::new(), err_form.into_response());
@@ -108,8 +109,7 @@ pub async fn connect4_create_match<'a>(
         (headers, form.into_response())
     })
     .await
-    .unwrap();
-    result
+    .unwrap()
 }
 
 #[tracing::instrument(skip(state))]
@@ -118,7 +118,8 @@ pub async fn connect4_selects<'a>(
     State(state): State<Arc<AppState>>,
     query: Query<create_match::CreateMatchSelectsQuery>,
 ) -> impl IntoResponse {
-    let result = tokio::task::spawn_blocking(move || {
+    
+    tokio::task::spawn_blocking(move || {
         let conn = state.pool.get().unwrap();
 
         match query.fetch(&auth_user, &conn) {
@@ -130,8 +131,7 @@ pub async fn connect4_selects<'a>(
         }
     })
     .await
-    .unwrap();
-    result
+    .unwrap()
 }
 
 #[tracing::instrument(skip(app_layout, _state))]

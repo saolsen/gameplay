@@ -126,7 +126,7 @@ impl CreateMatchFormData {
         let blue_select = match self.player_type_1.as_str() {
             "me" => {
                 if self.player_name_1 != auth_user.username {
-                    errors.push((1, format!("Me must be you.")));
+                    errors.push((1, "Me must be you.".to_string()));
                 }
                 CreateMatchFormSelects {
                     i: 1,
@@ -136,7 +136,7 @@ impl CreateMatchFormData {
             }
             "user" => {
                 if self.player_type_1 == auth_user.username {
-                    errors.push((1, format!("Select 'me' for yourself.")));
+                    errors.push((1, "Select 'me' for yourself.".to_string()));
                 }
                 CreateMatchFormSelects {
                     i: 1,
@@ -154,7 +154,7 @@ impl CreateMatchFormData {
         let red_select = match self.player_type_2.as_str() {
             "me" => {
                 if self.player_name_2 != auth_user.username {
-                    errors.push((2, format!("Me must be you.")));
+                    errors.push((2, "Me must be you.".to_string()));
                 }
                 CreateMatchFormSelects {
                     i: 2,
@@ -164,7 +164,7 @@ impl CreateMatchFormData {
             }
             "user" => {
                 if self.player_type_2 == auth_user.username {
-                    errors.push((2, format!("Select 'me' for yourself.")));
+                    errors.push((2, "Select 'me' for yourself.".to_string()));
                 }
                 CreateMatchFormSelects {
                     i: 2,
@@ -198,7 +198,7 @@ impl CreateMatchFormData {
 
         eprintln!("errors: {:?}", errors);
 
-        if errors.len() > 0 {
+        if !errors.is_empty() {
             return Err(CreateMatchForm {
                 blue: blue_select,
                 red: red_select,
