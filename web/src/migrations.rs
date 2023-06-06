@@ -73,7 +73,23 @@ lazy_static! {
                 )
             ) STRICT;
         "#
-        )
+        ),
+        M::up(
+            r#"
+            DROP INDEX idx_agent_agentname;
+            CREATE UNIQUE INDEX idx_agent_agentname ON agent (user_id, game, agentname);
+        "#
+        ),
+        M::up(
+            r#"
+            CREATE TABLE agent_deployment (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id INTEGER NOT NULL REFERENCES agent(id),
+                url TEXT NOT NULL
+            ) STRICT;
+            CREATE UNIQUE INDEX idx_agent_deployment_agent_id ON agent_deployment (agent_id);
+        "#
+        ),
     ]);
 }
 

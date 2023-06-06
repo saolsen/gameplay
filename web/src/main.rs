@@ -10,11 +10,11 @@ use tracing_subscriber::layer::SubscriberExt;
 
 mod auth;
 mod config;
+mod forms;
 mod migrations;
 mod templates;
 mod types;
 mod web;
-mod forms;
 
 #[tokio::main]
 async fn main() {

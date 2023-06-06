@@ -1,25 +1,22 @@
+use crate::forms::create_match;
 use crate::{config, migrations, templates, types};
 use askama_axum::IntoResponse as _;
 use axum::extract::{Query, State};
-use axum::http::StatusCode;
-use axum::response::{Html, IntoResponse};
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::IntoResponse;
 use axum::Form;
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
-use crate::templates::{CreateMatchFormSelects, CreateMatchOptions};
 
 #[derive(Debug)]
 pub struct AppState {
-    pub pool: Pool<SqliteConnectionManager>,
+    pub pool: types::Pool,
 }
 
 impl AppState {
     pub fn new() -> Self {
-        let manager = SqliteConnectionManager::file(&*config::DB).with_init(|c| {
-            //let manager = SqliteConnectionManager::memory().with_init(|c| {
+        let manager = r2d2_sqlite::SqliteConnectionManager::file(&*config::DB).with_init(|c| {
             c.execute_batch(
                 r#"
                     PRAGMA journal_mode = wal;
@@ -28,7 +25,7 @@ impl AppState {
                 "#,
             )
         });
-        let pool = Pool::new(manager).unwrap();
+        let pool = types::Pool::new(manager).unwrap();
         {
             let mut conn = pool.get().unwrap();
             migrations::migrate(&mut conn).unwrap();
@@ -56,8 +53,9 @@ pub async fn root<'a>(
     web_layout: templates::WebLayout<'a>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
+    let pool = state.pool.clone();
     let _result = tokio::task::spawn_blocking(move || {
-        let conn = state.pool.get().unwrap();
+        let conn = pool.get().unwrap();
         let res: String = conn
             .query_row(r#"select sqlite_version() as version"#, [], |row| {
                 row.get(0)
@@ -79,125 +77,61 @@ pub async fn app<'a>(
 ) -> impl IntoResponse {
     let index = templates::AppIndex {
         _layout: app_layout,
-        create_match: templates::CreateMatchForm {
-            blue: templates::CreateMatchFormSelects {
-                i: 1,
-                options: templates::CreateMatchOptions::Me(auth_user.username.clone()),
-                selected: Some(auth_user.username.clone())
-            },
-            red: templates::CreateMatchFormSelects {
-                i: 2,
-                options: templates::CreateMatchOptions::User(vec!["gabe".to_string(), "steve".to_string()]),
-                selected: Some("steve".to_owned()),
-            }
-        },
+        create_match: create_match::CreateMatchForm::default(&auth_user),
     };
     index.into_response()
 }
 
-#[derive(Deserialize, Debug)]
-pub struct CreateMatchFormData {
-    pub player_type_1: String,
-    pub player_name_1: String,
-    pub player_type_2: String,
-    pub player_name_2: String,
-}
-
-#[tracing::instrument(skip(_state))]
+#[tracing::instrument(skip(state))]
 pub async fn connect4_create_match<'a>(
     auth_user: types::UserRecord,
-    State(_state): State<Arc<AppState>>,
-    Form(form): Form<CreateMatchFormData>,
+    State(state): State<Arc<AppState>>,
+    Form(form): Form<create_match::CreateMatchFormData>,
 ) -> impl IntoResponse {
-    // two users that are not you is not allowed
-    // make sure user isn't you, that's hackers
-
-    //todo: can write this now
-    // STEVE THIS NEXT
-
-    match form.player_type_1.as_str() {
-        "me" => {
-            println!("me")
+    // todo: Validate the player names and agent names as being real.
+    // these will be text box auto complete fields eventually, not selects so
+    // they need to check their inputs.
+    let result = tokio::task::spawn_blocking(move || {
+        let conn = state.pool.get().unwrap();
+        if let Err(err_form) = form.validate(&auth_user, &conn) {
+            return (HeaderMap::new(), err_form.into_response());
         }
-        "user" => {
-            println!("user")
-        }
-        "agent" => {
-            println!("agent")
-        }
-        _ => {
-            println!("wat: {}", form.player_type_1)
-        }
-    }
 
+        // todo: create the match
 
-    // todo: on error, form should have same things selected as before
-    // let form = templates::CreateMatchForm { auth_user,
-    // blue:
-    //
-    // };
-    let location =
-        json!({"path": format!("/app/games/connect4/matches/{}", 123), "target": "#main"});
-    (
-        [("hx-location", location.to_string())],
-        "todo",
-    )
+        let form = create_match::CreateMatchForm::default(&auth_user);
+        let location =
+            json!({"path": format!("/app/games/connect4/matches/{}", 123), "target": "#main"});
+
+        let mut headers = HeaderMap::new();
+        headers.insert("hx-location", location.to_string().parse().unwrap());
+        (headers, form.into_response())
+    })
+    .await
+    .unwrap();
+    result
 }
 
-#[derive(Deserialize, Debug)]
-pub struct SelectsQuery {
-    pub player_type_1: Option<String>,
-    pub player_type_2: Option<String>,
-}
-
-#[tracing::instrument(skip(_state))]
+#[tracing::instrument(skip(state))]
 pub async fn connect4_selects<'a>(
     auth_user: types::UserRecord,
-    State(_state): State<Arc<AppState>>,
-    query: Query<SelectsQuery>,
+    State(state): State<Arc<AppState>>,
+    query: Query<create_match::CreateMatchSelectsQuery>,
 ) -> impl IntoResponse {
-    let (player_type, n) = match (&query.player_type_1, &query.player_type_2) {
-        (Some(player_type_1), None) => {
-            let n = 1;
-            (player_type_1, n)
-        }
-        (None, Some(player_type_2)) => {
-            let n = 2;
-            (player_type_2, n)
-        }
-        _ => {
-            return (
+    let result = tokio::task::spawn_blocking(move || {
+        let conn = state.pool.get().unwrap();
+
+        match query.fetch(&auth_user, &conn) {
+            Ok(selects) => (StatusCode::OK, selects.into_response()),
+            Err(error) => (
                 StatusCode::BAD_REQUEST,
-                Html("Invalid query params".to_owned()),
-            );
+                askama_axum::IntoResponse::into_response(error),
+            ),
         }
-    };
-
-    let options = match player_type.as_str() {
-        "me" => {
-            CreateMatchOptions::Me(auth_user.username.clone())
-        },
-        "user" => {
-            CreateMatchOptions::User(vec!["gabe".to_string(), "steve".to_string()])
-        },
-        "agent" => {
-            CreateMatchOptions::Agent(vec!["random".to_string(), "minimax".to_string()])
-        },
-        _ => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Html("Invalid query params".to_owned()),
-            );
-        }
-    };
-
-    let selects = CreateMatchFormSelects{
-        i: n,
-        options,
-        selected: None,
-    };
-
-    (StatusCode::OK, Html(selects.to_string()))
+    })
+    .await
+    .unwrap();
+    result
 }
 
 #[tracing::instrument(skip(app_layout, _state))]
@@ -222,7 +156,6 @@ pub async fn connect4_match<'a>(
                 number: 0,
                 player: None,
                 action: None,
-
             },
             types::Turn {
                 number: 1,

@@ -8,6 +8,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::config;
+use crate::forms::create_match;
 use crate::types;
 use crate::web;
 
@@ -82,32 +83,11 @@ impl<'a> FromRequestParts<Arc<web::AppState>> for AppLayout<'a> {
     }
 }
 
-pub enum CreateMatchOptions {
-    Me(String),
-    User(Vec<String>),
-    Agent(Vec<String>),
-}
-
-#[derive(Template)]
-#[template(path = "create_match_form_selects.html")]
-pub struct CreateMatchFormSelects {
-    pub i: usize,
-    pub options: CreateMatchOptions,
-    pub selected: Option<String>,
-}
-
-#[derive(Template)]
-#[template(path = "create_match_form.html")]
-pub struct CreateMatchForm {
-    pub blue: CreateMatchFormSelects,
-    pub red: CreateMatchFormSelects,
-}
-
 #[derive(Template)]
 #[template(path = "app_index.html")]
 pub struct AppIndex<'a> {
     pub _layout: AppLayout<'a>,
-    pub create_match: CreateMatchForm,
+    pub create_match: create_match::CreateMatchForm,
 }
 
 impl<'a> Deref for AppIndex<'a> {
