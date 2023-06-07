@@ -5,6 +5,7 @@ use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Form;
+use rusqlite::OptionalExtension;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
@@ -82,21 +83,238 @@ pub async fn app<'a>(
     index.into_response()
 }
 
+// todo: service style function
+fn create_connect4_match(
+    conn: &types::Conn,
+    created_by_user_id: i64,
+    blue_player: &types::Player,
+    red_player: &types::Player,
+) -> () {
+}
+
+// note: I'm doing everything in-line to start. It's very tbd what things go in which modules
+// until I see it all laid out. Luckily refactoring is so easy is rust.
 #[tracing::instrument(skip(state))]
 pub async fn connect4_create_match<'a>(
     auth_user: types::UserRecord,
     State(state): State<Arc<AppState>>,
     Form(form): Form<create_match::CreateMatchFormData>,
 ) -> impl IntoResponse {
-    // todo: Validate the player names and agent names as being real.
-    // these will be text box auto complete fields eventually, not selects so
-    // they need to check their inputs.
-
     tokio::task::spawn_blocking(move || {
         let conn = state.pool.get().unwrap();
-        if let Err(err_form) = form.validate(&auth_user, &conn) {
-            return (HeaderMap::new(), err_form.into_response());
+
+        let mut blue_error = None;
+        let mut red_error = None;
+
+        // Validate the selections
+        let blue_select = match form.player_type_1.as_str() {
+            "me" => {
+                if form.player_name_1 != auth_user.username {
+                    blue_error = Some("Me must be you.".to_string());
+                }
+                create_match::CreateMatchFormSelects {
+                    i: 1,
+                    options: create_match::CreateMatchOptions::me(&auth_user),
+                    selected: Some(auth_user.username.clone()),
+                }
+            }
+            "user" => {
+                if form.player_type_1 == auth_user.username {
+                    blue_error = Some("Select 'me' for yourself.".to_string());
+                }
+                create_match::CreateMatchFormSelects {
+                    i: 1,
+                    options: create_match::CreateMatchOptions::users(&auth_user, &conn),
+                    selected: Some(form.player_name_1.to_string()),
+                }
+            }
+            "agent" => create_match::CreateMatchFormSelects {
+                i: 1,
+                options: create_match::CreateMatchOptions::agents(&auth_user, &conn),
+                selected: Some(form.player_name_1.to_string()),
+            },
+            _ => create_match::CreateMatchFormSelects::default(&auth_user, 1),
+        };
+        let red_select = match form.player_type_2.as_str() {
+            "me" => {
+                if form.player_name_2 != auth_user.username {
+                    red_error = Some("Me must be you.".to_string());
+                }
+                create_match::CreateMatchFormSelects {
+                    i: 2,
+                    options: create_match::CreateMatchOptions::me(&auth_user),
+                    selected: Some(auth_user.username.clone()),
+                }
+            }
+            "user" => {
+                if form.player_type_2 == auth_user.username {
+                    red_error = Some("Select 'me' for yourself.".to_string());
+                }
+                create_match::CreateMatchFormSelects {
+                    i: 2,
+                    options: create_match::CreateMatchOptions::users(&auth_user, &conn),
+                    selected: Some(form.player_name_2.to_string()),
+                }
+            }
+            "agent" => create_match::CreateMatchFormSelects {
+                i: 2,
+                options: create_match::CreateMatchOptions::agents(&auth_user, &conn),
+                selected: Some(form.player_name_2.to_string()),
+            },
+            _ => create_match::CreateMatchFormSelects::default(&auth_user, 2),
+        };
+
+        match (form.player_type_1.as_str(), form.player_type_2.as_str()) {
+            ("user", "user") => {
+                // Can't create a game between two users that aren't you.
+                blue_error = Some(
+                    "You must be one of the players unless the game is all AI agents.".to_string(),
+                );
+                red_error = Some(
+                    "You must be one of the players unless the game is all AI agents.".to_string(),
+                );
+            }
+            ("user", "agent") => {
+                // Can't create a game between a user that isn't you and an agent.
+                blue_error = Some(
+                    "You must be one of the players unless the game is all AI agents.".to_string(),
+                );
+            }
+            ("agent", "user") => {
+                // Can't create a game between a user that isn't you and an agent.
+                red_error = Some(
+                    "You must be one of the players unless the game is all AI agents.".to_string(),
+                );
+            }
+            _ => {}
         }
+
+        if blue_error.is_some() || red_error.is_some() {
+            return (
+                HeaderMap::new(),
+                create_match::CreateMatchForm {
+                    blue: blue_select,
+                    red: red_select,
+                    blue_error,
+                    red_error,
+                }
+                .into_response(),
+            );
+        }
+
+        let lookup_player = |player_type: &str, player_name: &str| {
+            match player_type {
+                "me" => Ok((
+                    auth_user.id,
+                    types::Player::User(types::User {
+                        username: auth_user.username.clone(),
+                    }),
+                )),
+                "user" => {
+                    if let Some((id, username)) = conn
+                        .query_row(
+                            r#"
+                        SELECT id, username from user WHERE username = ?;
+                    "#,
+                            [player_name],
+                            |row| {
+                                let id = row.get(0)?;
+                                let username = row.get(1)?;
+                                Ok((id, username))
+                            },
+                        )
+                        .optional()
+                        .unwrap()
+                    {
+                        Ok((id, types::Player::User(types::User { username })))
+                    } else {
+                        Err(format!("User {} not found.", player_name))
+                    }
+                }
+                "agent" => {
+                    // TODO: Make sure agent names have same rules as user names.
+                    // Can only contain letters, numbers and hyphens and underscores.
+                    if let Some((split_username, split_agentname)) = player_name.split_once('/') {
+                        if let Some((id, username, agentname)) = conn
+                            .query_row(
+                                r#"
+                                SELECT
+                                  agent.id,
+                                  user.username,
+                                  agent.agentname
+                                FROM agent
+                                JOIN user ON agent.user_id = user.id
+                                WHERE user.username = ?
+                                AND agent.agentname = ?
+                                AND agent.game = 'connect4'
+                            "#,
+                                [&split_username, &split_agentname],
+                                |row| {
+                                    let id = row.get(0)?;
+                                    let username = row.get(1)?;
+                                    let agentname = row.get(2)?;
+                                    Ok((id, username, agentname))
+                                },
+                            )
+                            .optional()
+                            .unwrap()
+                        {
+                            Ok((
+                                id,
+                                types::Player::Agent(types::Agent {
+                                    game: types::Game::Connect4,
+                                    username,
+                                    agentname,
+                                }),
+                            ))
+                        } else {
+                            Err(format!("Agent {} not found.", player_name))
+                        }
+                    } else {
+                        Err(format!("Agent {} not found.", player_name))
+                    }
+                }
+                _ => unreachable!(),
+            }
+        };
+
+        let (blue_player_id, blue_player, red_player_id, red_player) = {
+            let blue_player_result = lookup_player(&form.player_type_1, &form.player_name_1);
+            if let Err(e) = &blue_player_result {
+                blue_error = Some(e.clone());
+            }
+
+            let red_player_result = lookup_player(&form.player_type_2, &form.player_name_2);
+            if let Err(e) = &red_player_result {
+                red_error = Some(e.clone());
+            }
+
+            if blue_error.is_some() || red_error.is_some() {
+                return (
+                    HeaderMap::new(),
+                    create_match::CreateMatchForm {
+                        blue: blue_select,
+                        red: red_select,
+                        blue_error,
+                        red_error,
+                    }
+                    .into_response(),
+                );
+            }
+
+            let (blue_player_id, blue_player) = blue_player_result.unwrap();
+            let (red_player_id, red_player) = red_player_result.unwrap();
+            (blue_player_id, blue_player, red_player_id, red_player)
+        };
+
+        println!(
+            "blue_player_id: {}, blue_player: {:?}",
+            blue_player_id, blue_player
+        );
+        println!(
+            "red_player_id: {}, red_player: {:?}",
+            red_player_id, red_player
+        );
 
         // todo: create the match
 
