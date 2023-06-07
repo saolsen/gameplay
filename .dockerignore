@@ -2,4 +2,5 @@
 target
 db
 .idea
+.vscode
 fly.toml

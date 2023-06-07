@@ -49,7 +49,6 @@ where
 #[template(path = "app_layout.html")]
 pub struct AppLayout<'a> {
     pub clerk_pub_api_key: &'a str,
-    // The user making the request. All app routes require authentication
     pub auth_user: types::UserRecord,
     pub htmx_target: String,
 }

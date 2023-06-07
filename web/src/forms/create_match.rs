@@ -94,7 +94,8 @@ impl CreateMatchSelectsQuery {
 pub struct CreateMatchForm {
     pub blue: CreateMatchFormSelects,
     pub red: CreateMatchFormSelects,
-    pub errors: Vec<(usize, String)>,
+    pub blue_error: Option<String>,
+    pub red_error: Option<String>,
 }
 
 impl CreateMatchForm {
@@ -102,7 +103,8 @@ impl CreateMatchForm {
         Self {
             blue: CreateMatchFormSelects::default(auth_user, 1),
             red: CreateMatchFormSelects::default(auth_user, 2),
-            errors: vec![],
+            blue_error: None,
+            red_error: None,
         }
     }
 }
@@ -122,11 +124,12 @@ impl CreateMatchFormData {
         auth_user: &types::UserRecord,
         conn: &types::Conn,
     ) -> Result<(), CreateMatchForm> {
-        let mut errors = vec![];
+        let mut blue_error = None;
+        let mut red_error = None;
         let blue_select = match self.player_type_1.as_str() {
             "me" => {
                 if self.player_name_1 != auth_user.username {
-                    errors.push((1, "Me must be you.".to_string()));
+                    blue_error = Some("Me must be you.".to_string());
                 }
                 CreateMatchFormSelects {
                     i: 1,
@@ -136,7 +139,7 @@ impl CreateMatchFormData {
             }
             "user" => {
                 if self.player_type_1 == auth_user.username {
-                    errors.push((1, "Select 'me' for yourself.".to_string()));
+                    blue_error = Some("Select 'me' for yourself.".to_string());
                 }
                 CreateMatchFormSelects {
                     i: 1,
@@ -154,7 +157,7 @@ impl CreateMatchFormData {
         let red_select = match self.player_type_2.as_str() {
             "me" => {
                 if self.player_name_2 != auth_user.username {
-                    errors.push((2, "Me must be you.".to_string()));
+                    red_error = Some("Me must be you.".to_string());
                 }
                 CreateMatchFormSelects {
                     i: 2,
@@ -164,7 +167,7 @@ impl CreateMatchFormData {
             }
             "user" => {
                 if self.player_type_2 == auth_user.username {
-                    errors.push((2, "Select 'me' for yourself.".to_string()));
+                    red_error = Some("Select 'me' for yourself.".to_string());
                 }
                 CreateMatchFormSelects {
                     i: 2,
@@ -183,26 +186,37 @@ impl CreateMatchFormData {
         match (self.player_type_1.as_str(), self.player_type_2.as_str()) {
             ("user", "user") => {
                 // Can't create a game between two users that isn't you.
-                errors.push((1, format!("wat: {}", self.player_name_1)));
+                blue_error = Some(
+                    "You must be one of the players unless the game is all AI agents.".to_string(),
+                );
+                red_error = Some(
+                    "You must be one of the players unless the game is all AI agents.".to_string(),
+                );
             }
             ("user", "agent") => {
                 // Can't create a game between a user that isn't you and an agent.
-                errors.push((1, format!("wat: {}", self.player_name_1)));
+                blue_error = Some(
+                    "You must be one of the players unless the game is all AI agents.".to_string(),
+                );
             }
             ("agent", "user") => {
                 // Can't create a game between a user that isn't you and an agent.
-                errors.push((2, format!("wat: {}", self.player_name_2)));
+                red_error = Some(
+                    "You must be one of the players unless the game is all AI agents.".to_string(),
+                );
             }
             _ => {}
         }
 
-        eprintln!("errors: {:?}", errors);
+        println!("blue_error: {:?}", blue_error);
+        println!("red_error: {:?}", red_error);
 
-        if !errors.is_empty() {
+        if blue_error.is_some() || red_error.is_some() {
             return Err(CreateMatchForm {
                 blue: blue_select,
                 red: red_select,
-                errors,
+                blue_error,
+                red_error,
             });
         }
 
