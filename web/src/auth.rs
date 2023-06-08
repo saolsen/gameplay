@@ -8,7 +8,6 @@ use rusqlite::OptionalExtension;
 use std::sync::Arc;
 use tracing::Instrument;
 
-use crate::config;
 use crate::types;
 use crate::web;
 
@@ -81,7 +80,7 @@ impl FromRequestParts<Arc<web::AppState>> for types::UserRecord {
                                     ).unwrap();
                                     // Get again instead of last_row_id because it could be
                                     // an update.
-                                    let user_id = conn.query_row(
+                                    conn.query_row(
                                         r#"
                                         SELECT id
                                         FROM user
@@ -97,8 +96,7 @@ impl FromRequestParts<Arc<web::AppState>> for types::UserRecord {
                                             &claims.custom.last_name,
                                             &claims.custom.email], |row| {
                                             row.get(0)
-                                        }).unwrap();
-                                    user_id
+                                        }).unwrap()
                                 }
                             };
                             return Some(types::UserRecord {
