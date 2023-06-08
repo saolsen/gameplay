@@ -82,14 +82,14 @@ impl FromRequestParts<Arc<web::AppState>> for types::UserRecord {
                                     // an update.
                                     conn.query_row(
                                         r#"
-                                        SELECT id
-                                        FROM user
-                                        WHERE clerk_id = ?1
-                                        AND username = ?2
-                                        AND first_name = ?3
-                                        AND last_name = ?4
-                                        AND email = ?5
-                                    "#, [
+                                            SELECT id
+                                            FROM user
+                                            WHERE clerk_id = ?1
+                                            AND username = ?2
+                                            AND first_name = ?3
+                                            AND last_name = ?4
+                                            AND email = ?5
+                                        "#, [
                                             &claims.custom.clerk_id,
                                             &claims.custom.username,
                                             &claims.custom.first_name,

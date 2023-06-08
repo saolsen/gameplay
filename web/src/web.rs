@@ -1,5 +1,7 @@
+use crate::connect4::Connect4Result;
 use crate::forms::create_match;
-use crate::{config, migrations, templates, types};
+use crate::matches::get_match_by_id;
+use crate::{config, connect4, migrations, templates, types};
 use askama_axum::IntoResponse as _;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
@@ -444,159 +446,7 @@ pub async fn connect4_match<'a>(
     let maybe_match: Option<types::Match<types::Connect4Action, types::Connect4State>> =
         tokio::task::spawn_blocking(move || {
             let conn = state.pool.get().unwrap();
-
-            let match_ = conn
-                .query_row(
-                    r#"
-                        SELECT
-                          match.id,
-                          match_turn.number as turn,
-                          match_turn.status,
-                          match_turn.winner,
-                          match_turn.next_player,
-                          match_turn.state
-                        FROM match
-                        JOIN match_turn ON match.id = match_turn.match_id
-                        WHERE match.id = ?
-                        AND match.game = 'connect4'
-                        AND match_turn.number = (
-                          SELECT max(number)
-                          FROM match_turn
-                          WHERE match_id = match.id
-                        )
-                    "#,
-                    [match_id],
-                    |row| {
-                        let id: i64 = row.get(0)?;
-                        let turn: usize = row.get(1)?;
-                        let status_str: String = row.get(2)?;
-                        let winner: Option<usize> = row.get(3)?;
-                        let next_player: Option<usize> = row.get(4)?;
-                        let state: String = row.get(5)?;
-
-                        let status = match status_str.as_str() {
-                            "in_progress" => {
-                                let next_player = next_player.unwrap();
-                                types::Status::InProgress { next_player }
-                            }
-                            "over" => types::Status::Over { winner },
-                            _ => unreachable!(),
-                        };
-
-                        let state: types::Connect4State = serde_json::from_str(&state).unwrap();
-
-                        Ok((id, turn, status, state))
-                    },
-                )
-                .optional()
-                .unwrap();
-
-            if let Some((id, turn, status, state)) = match_ {
-                let mut player_stmt = conn
-                    .prepare(
-                        r#"
-                            SELECT
-                              match_player.number,
-                              match_player.user_id,
-                              match_player.agent_id,
-                              user.username as user_username,
-                              agent_user.username as agent_username,
-                              agent.agentname as agent_agentname
-                            FROM match_player
-                            LEFT JOIN user ON user.id = match_player.user_id
-                            LEFT JOIN agent ON agent.id = match_player.agent_id
-                            LEFT JOIN user AS agent_user ON agent_user.id = agent.user_id
-                            WHERE match_id = ?
-                            ORDER BY number ASC
-                        "#,
-                    )
-                    .unwrap();
-                let match_players = player_stmt
-                    .query_map([match_id], |row| {
-                        let number: i64 = row.get(0)?;
-                        let user_id: Option<i64> = row.get(1)?;
-                        let agent_id: Option<i64> = row.get(2)?;
-                        let user_username: Option<String> = row.get(3)?;
-                        let agent_username: Option<String> = row.get(4)?;
-                        let agent_agentname: Option<String> = row.get(5)?;
-
-                        let player = if user_id.is_some() {
-                            types::Player::User(types::User {
-                                username: user_username.unwrap(),
-                            })
-                        } else if agent_id.is_some() {
-                            types::Player::Agent(types::Agent {
-                                game: types::Game::Connect4,
-                                username: agent_username.unwrap(),
-                                agentname: agent_agentname.unwrap(),
-                            })
-                        } else {
-                            panic!("match_player has neither user_id nor agent_id")
-                        };
-                        Ok((number, player))
-                    })
-                    .unwrap();
-                let mut players = vec![];
-                for (i, player) in match_players.enumerate() {
-                    let (n, p) = player.unwrap();
-                    assert!(i == n as usize);
-                    players.push(p);
-                }
-
-                let mut turn_stmt = conn
-                    .prepare(
-                        r#"
-                        SELECT
-                          number,
-                          player,
-                          action
-                        FROM match_turn
-                        WHERE match_id = ?
-                        ORDER BY number ASC
-                    "#,
-                    )
-                    .unwrap();
-                let match_turns = turn_stmt
-                    .query_map([match_id], |row| {
-                        let number: usize = row.get(0)?;
-                        let player: Option<usize> = row.get(1)?;
-                        let action_json: Option<String> = row.get(2)?;
-
-                        let action = match action_json {
-                            Some(action_json) => {
-                                let action: types::Connect4Action =
-                                    serde_json::from_str(&action_json).unwrap();
-                                Some(action)
-                            }
-                            None => None,
-                        };
-
-                        Ok(types::Turn {
-                            number,
-                            player,
-                            action,
-                        })
-                    })
-                    .unwrap();
-                let mut turns = vec![];
-                for (i, turn) in match_turns.enumerate() {
-                    let t = turn.unwrap();
-                    assert!(i == t.number);
-                    turns.push(t);
-                }
-
-                let match_ = types::Match {
-                    id,
-                    game: types::Game::Connect4,
-                    players,
-                    turns,
-                    turn,
-                    status,
-                    state,
-                };
-                return Some(match_);
-            }
-            None
+            get_match_by_id(&conn, match_id)
         })
         .instrument(info_span!("get_match"))
         .await
@@ -622,51 +472,116 @@ pub struct CreateTurnFormData {
     pub column: usize,
 }
 
-#[tracing::instrument(skip(app_layout, _state))]
 pub async fn connect4_match_create_turn<'a>(
-    _auth_user: types::UserRecord,
+    auth_user: types::UserRecord,
     app_layout: templates::AppLayout<'a>,
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
+    Path(match_id): Path<i64>,
     Form(form): Form<CreateTurnFormData>,
 ) -> impl IntoResponse {
-    println!("{:?}", form);
+    let result = tokio::task::spawn_blocking(move || {
+        let conn = state.pool.get().unwrap();
+        let maybe_match = get_match_by_id(&conn, match_id);
 
-    let mut m = types::Match {
-        id: 123,
-        game: types::Game::Connect4,
-        players: vec![
-            types::Player::User(types::User {
-                username: "user1".to_string(),
-            }),
-            types::Player::User(types::User {
-                username: "steve".to_string(),
-            }),
-        ],
-        turns: vec![
-            types::Turn {
-                number: 0,
-                player: None,
-                action: None,
+        let match_ = match maybe_match {
+            None => return Err((StatusCode::BAD_REQUEST, "Match not found".to_owned())),
+            Some(match_) => match_,
+        };
+
+        // Validate the turn.
+        match &match_.status {
+            types::Status::Over { .. } => {
+                return Err((StatusCode::BAD_REQUEST, "Match is over".to_owned()))
+            }
+            types::Status::InProgress { next_player } => {
+                if *next_player != form.player {
+                    return Err((StatusCode::BAD_REQUEST, "Not your turn".to_owned()));
+                }
+
+                let player = &match_.players[*next_player];
+                match player {
+                    types::Player::User(user) => {
+                        if user.username != auth_user.username {
+                            return Err((StatusCode::BAD_REQUEST, "Not your turn".to_owned()));
+                        }
+                    }
+                    types::Player::Agent(_) => {
+                        return Err((StatusCode::BAD_REQUEST, "Not your turn".to_owned()));
+                    }
+                }
+            }
+        };
+
+        // Run the logic for the turn.
+        let action = types::Connect4Action {
+            column: form.column,
+        };
+        let mut state = match_.state;
+        if let Err(error) = connect4::take_turn(&mut state, &action, form.player) {
+            return Err((StatusCode::BAD_REQUEST, error));
+        }
+
+        // Check for win
+        let result = connect4::check(&state);
+        let (status, winner, next_player) = match result {
+            Connect4Result::Winner(player) => {
+                ("over", Some(player), None)
             },
-            types::Turn {
-                number: 1,
-                player: Some(0),
-                action: Some(types::Connect4Action { column: 0 }),
+            Connect4Result::Tie => {
+                ("over", None, None)
             },
-        ],
-        turn: 1,
-        status: types::Status::Over { winner: None },
-        state: types::Connect4State {
-            board: vec![None; 42],
-        },
-    };
+            Connect4Result::InProgress => {
+                ("in_progress", None, Some((form.player + 1) % 2))
+            },
+        };
 
-    m.state.board[0] = Some(0);
-    m.state.board[1] = Some(1);
+        // Insert the turn, if the turn number already exists that means the turn was already taken.
+        let turn_number = match_.turn + 1;
+        let insert_result = conn.execute(
+            r#"
+                INSERT INTO match_turn (match_id, number, player, action, status, winner, next_player, state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+            params![
+                    match_id,
+                    turn_number,
+                    form.player,
+                    serde_json::to_string(&action).unwrap(),
+                    status,
+                    winner,
+                    next_player,
+                    serde_json::to_string(&state).unwrap()
+                    ],
+        );
+        if let Err(rusqlite::Error::SqliteFailure(error, _)) = insert_result {
+            if error.code == rusqlite::ErrorCode::ConstraintViolation {
+                return Err((StatusCode::BAD_REQUEST, "Turn already taken".to_owned()));
+            } else {
+                panic!("Unexpected error: {:?}", error)
+            }
+        }
 
-    let template = templates::Connect4Match {
-        _layout: app_layout,
-        connect4_match: m,
-    };
-    template.into_response()
+        if let Some(_match) = get_match_by_id(&conn, match_id) {
+            Ok(_match)
+        } else {
+            Err((
+                StatusCode::NOT_FOUND,
+                "Match not found".to_owned(),
+            ))
+        }
+    })
+    .instrument(info_span!("create_turn"))
+    .await
+    .unwrap();
+
+    match result {
+        Ok(match_) => {
+            let template = templates::Connect4Match {
+                _layout: app_layout,
+                connect4_match: match_,
+            };
+            (StatusCode::OK, template.into_response())
+        }
+        Err((status, body)) => (status, askama_axum::IntoResponse::into_response(body)),
+    }
 }

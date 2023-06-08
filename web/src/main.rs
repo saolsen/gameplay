@@ -10,7 +10,9 @@ use tracing_subscriber::layer::SubscriberExt;
 
 mod auth;
 mod config;
+mod connect4;
 mod forms;
+mod matches;
 mod migrations;
 mod templates;
 mod types;
