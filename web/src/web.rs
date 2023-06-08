@@ -1,11 +1,12 @@
 use crate::forms::create_match;
+use crate::types::Connect4Action;
 use crate::{config, migrations, templates, types};
 use askama_axum::IntoResponse as _;
 use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Form;
-use rusqlite::OptionalExtension;
+use rusqlite::{params, OptionalExtension};
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
@@ -83,15 +84,6 @@ pub async fn app<'a>(
     index.into_response()
 }
 
-// todo: service style function
-fn create_connect4_match(
-    conn: &types::Conn,
-    created_by_user_id: i64,
-    blue_player: &types::Player,
-    red_player: &types::Player,
-) -> () {
-}
-
 // note: I'm doing everything in-line to start. It's very tbd what things go in which modules
 // until I see it all laid out. Luckily refactoring is so easy is rust.
 #[tracing::instrument(skip(state))]
@@ -101,7 +93,7 @@ pub async fn connect4_create_match<'a>(
     Form(form): Form<create_match::CreateMatchFormData>,
 ) -> impl IntoResponse {
     tokio::task::spawn_blocking(move || {
-        let conn = state.pool.get().unwrap();
+        let mut conn = state.pool.get().unwrap();
 
         let mut blue_error = None;
         let mut red_error = None;
@@ -307,6 +299,15 @@ pub async fn connect4_create_match<'a>(
             (blue_player_id, blue_player, red_player_id, red_player)
         };
 
+        let (blue_player_user_id, blue_player_agent_id) = match &blue_player {
+            types::Player::User(user) => (Some(blue_player_id), None),
+            types::Player::Agent(agent) => (None, Some(blue_player_id)),
+        };
+        let (red_player_user_id, red_player_agent_id) = match &red_player {
+            types::Player::User(user) => (Some(red_player_id), None),
+            types::Player::Agent(agent) => (None, Some(red_player_id)),
+        };
+
         println!(
             "blue_player_id: {}, blue_player: {:?}",
             blue_player_id, blue_player
@@ -316,11 +317,90 @@ pub async fn connect4_create_match<'a>(
             red_player_id, red_player
         );
 
-        // todo: create the match
+        // New Match
+        let game = types::Game::Connect4;
+        let players = vec![blue_player, red_player];
+        let turns: Vec<types::Turn<types::Connect4Action>> = vec![
+            types::Turn {
+                number: 0,
+                player: None,
+                action: None,
+            }
+        ];
+        let turn = 0;
+        let status = types::Status::InProgress { next_player: 0 };
+        let state = types::Connect4State {
+            board: vec![None; 42],
+        };
+
+        println!("game: {}", serde_json::to_string(&game).unwrap());
+
+        // todo: handle sqlite errors, hopefully everything is validated by now tho.
+        let match_id = {
+            let tx = conn.transaction().unwrap();
+            tx.execute(
+                r#"
+                INSERT INTO match (game, created_by)
+                VALUES (?, ?)
+            "#,
+                params!["connect4", auth_user.id],
+            )
+            .unwrap();
+            let match_id = tx.last_insert_rowid();
+            tx.execute(
+                r#"
+                INSERT INTO match_player (match_id, number, user_id, agent_id)
+                VALUES (?, ?, ?, ?)
+            "#,
+                params![
+                    // blue player
+                    match_id,
+                    0,
+                    blue_player_user_id,
+                    blue_player_agent_id,
+                ],
+            )
+                .unwrap();
+            tx.execute(
+                r#"
+                INSERT INTO match_player (match_id, number, user_id, agent_id)
+                VALUES (?, ?, ?, ?)
+            "#,
+                params![
+                    // red player
+                    match_id,
+                    1,
+                    red_player_user_id,
+                    red_player_agent_id
+                ],
+            ).unwrap();
+            tx.execute(
+                r#"
+                INSERT INTO match_turn (match_id, number, player, action, status, winner, next_player, state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+                params![
+                    match_id,
+                    turns[0].number,
+                    turns[0].player,
+                    None::<String>,
+                    "in_progress",
+                    None::<usize>,
+                    Some(0),
+                    serde_json::to_string(&state).unwrap()
+                    ],
+            )
+            .unwrap();
+
+            tx.commit().unwrap();
+            match_id
+        };
+
+        println!("match_id: {}", match_id);
 
         let form = create_match::CreateMatchForm::default(&auth_user);
         let location =
-            json!({"path": format!("/app/games/connect4/matches/{}", 123), "target": "#main"});
+            json!({"path": format!("/app/games/connect4/matches/{match_id}"), "target": "#main"});
 
         let mut headers = HeaderMap::new();
         headers.insert("hx-location", location.to_string().parse().unwrap());

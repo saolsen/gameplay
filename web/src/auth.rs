@@ -64,13 +64,13 @@ impl FromRequestParts<Arc<web::AppState>> for types::UserRecord {
                                         AND last_name = ?4
                                         AND email = ?5
                                     "#, [
-                                    &clerk_id,
-                                    &username,
-                                    &first_name,
-                                    &last_name,
-                                    &email], |row| {
-                                    row.get(0)
-                                }).optional().unwrap();
+                                        &clerk_id,
+                                        &username,
+                                        &first_name,
+                                        &last_name,
+                                        &email], |row| {
+                                        row.get(0)
+                                    }).optional().unwrap();
                                 if let Some(id) = user_id {
                                     id
                                 } else {
@@ -91,7 +91,26 @@ impl FromRequestParts<Arc<web::AppState>> for types::UserRecord {
                                         &last_name,
                                         &email]
                                     ).unwrap();
-                                    conn.last_insert_rowid()
+                                    // Get again instead of last_row_id because it could be
+                                    // an update.
+                                    let user_id = conn.query_row(
+                                        r#"
+                                        SELECT id
+                                        FROM user
+                                        WHERE clerk_id = ?1
+                                        AND username = ?2
+                                        AND first_name = ?3
+                                        AND last_name = ?4
+                                        AND email = ?5
+                                    "#, [
+                                        &clerk_id,
+                                        &username,
+                                        &first_name,
+                                        &last_name,
+                                        &email], |row| {
+                                        row.get(0)
+                                    }).unwrap();
+                                    user_id
                                 }
                             };
                             types::UserRecord {
