@@ -4,18 +4,13 @@ use axum::http::request::Parts;
 use axum::response::Redirect;
 use cookie::Cookie;
 use jwt_simple::prelude::*;
-use lazy_static::lazy_static;
 use rusqlite::OptionalExtension;
 use std::sync::Arc;
+use tracing::Instrument;
 
 use crate::config;
 use crate::types;
 use crate::web;
-
-lazy_static! {
-    static ref KEY: RS256PublicKey =
-        RS256PublicKey::from_pem(&config::CLERK_PUB_ENCRYPTION_KEY).unwrap();
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ClerkClaims {
@@ -40,17 +35,10 @@ impl FromRequestParts<Arc<web::AppState>> for types::UserRecord {
             for cookie in Cookie::split_parse(header.to_str().unwrap()) {
                 let c = cookie.unwrap();
                 if c.name() == "__session" {
-                    // Validate the token
-                    let s = c.value();
-                    if let Ok(claims) = KEY.verify_token::<ClerkClaims>(s, None) {
-                        // Look up the user.
-                        let state = state.clone();
-                        let clerk_id = claims.custom.clerk_id.clone();
-                        let username = claims.custom.username.clone();
-                        let first_name = claims.custom.first_name.clone();
-                        let last_name = claims.custom.last_name.clone();
-                        let email = claims.custom.email.clone();
-                        let user = tokio::task::spawn_blocking(move || {
+                    let s = c.value().to_owned();
+                    let state = state.clone();
+                    let user = tokio::task::spawn_blocking(move || {
+                        if let Ok(claims) = state.key.verify_token::<ClerkClaims>(&s, None) {
                             let conn = state.pool.get().unwrap();
                             let user_id = {
                                 // Check if user data is up to date.
@@ -64,11 +52,11 @@ impl FromRequestParts<Arc<web::AppState>> for types::UserRecord {
                                         AND last_name = ?4
                                         AND email = ?5
                                     "#, [
-                                        &clerk_id,
-                                        &username,
-                                        &first_name,
-                                        &last_name,
-                                        &email], |row| {
+                                        &claims.custom.clerk_id,
+                                        &claims.custom.username,
+                                        &claims.custom.first_name,
+                                        &claims.custom.last_name,
+                                        &claims.custom.email], |row| {
                                         row.get(0)
                                     }).optional().unwrap();
                                 if let Some(id) = user_id {
@@ -85,11 +73,11 @@ impl FromRequestParts<Arc<web::AppState>> for types::UserRecord {
                                                 last_name = excluded.last_name,
                                                 email = excluded.email
                                         "#,[
-                                        &clerk_id,
-                                        &username,
-                                        &first_name,
-                                        &last_name,
-                                        &email]
+                                            &claims.custom.clerk_id,
+                                            &claims.custom.username,
+                                            &claims.custom.first_name,
+                                            &claims.custom.last_name,
+                                            &claims.custom.email]
                                     ).unwrap();
                                     // Get again instead of last_row_id because it could be
                                     // an update.
@@ -103,28 +91,32 @@ impl FromRequestParts<Arc<web::AppState>> for types::UserRecord {
                                         AND last_name = ?4
                                         AND email = ?5
                                     "#, [
-                                        &clerk_id,
-                                        &username,
-                                        &first_name,
-                                        &last_name,
-                                        &email], |row| {
-                                        row.get(0)
-                                    }).unwrap();
+                                            &claims.custom.clerk_id,
+                                            &claims.custom.username,
+                                            &claims.custom.first_name,
+                                            &claims.custom.last_name,
+                                            &claims.custom.email], |row| {
+                                            row.get(0)
+                                        }).unwrap();
                                     user_id
                                 }
                             };
-                            types::UserRecord {
+                            return Some(types::UserRecord {
                                 id: user_id,
                                 clerk_id: claims.custom.clerk_id,
                                 username: claims.custom.username,
                                 first_name: claims.custom.first_name,
                                 last_name: claims.custom.last_name,
                                 email: claims.custom.email,
-                            }
-                        })
-                            .await
-                            .unwrap();
+                            })
+                        }
+                        None
+                    })
+                    .instrument(tracing::info_span!("validate jwt"))
+                    .await
+                    .unwrap();
 
+                    if let Some(user) = user {
                         return Ok(user);
                     }
                 }

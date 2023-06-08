@@ -6,13 +6,16 @@ use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Form;
+use jwt_simple::algorithms::RS256PublicKey;
 use rusqlite::{params, OptionalExtension};
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
+use tracing::{info_span, Instrument};
 
 #[derive(Debug)]
 pub struct AppState {
+    pub key: RS256PublicKey,
     pub pool: types::Pool,
 }
 
@@ -32,7 +35,8 @@ impl AppState {
             let mut conn = pool.get().unwrap();
             migrations::migrate(&mut conn).unwrap();
         }
-        Self { pool }
+        let key = RS256PublicKey::from_pem(&config::CLERK_PUB_ENCRYPTION_KEY).unwrap();
+        Self { pool, key }
     }
 }
 
@@ -405,7 +409,7 @@ pub async fn connect4_create_match<'a>(
         let mut headers = HeaderMap::new();
         headers.insert("hx-location", location.to_string().parse().unwrap());
         (headers, form.into_response())
-    })
+    }).instrument(info_span!("create_match"))
     .await
     .unwrap()
 }
