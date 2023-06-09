@@ -98,6 +98,21 @@ impl<'a> Deref for AppIndex<'a> {
 }
 
 #[derive(Template)]
+#[template(path = "app_playground.html")]
+pub struct AppPlayground<'a> {
+    pub _layout: AppLayout<'a>,
+    pub page: String,
+}
+
+impl<'a> Deref for AppPlayground<'a> {
+    type Target = AppLayout<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self._layout
+    }
+}
+
+#[derive(Template)]
 #[template(path = "connect4_match.html")]
 pub struct Connect4Match<'a> {
     pub _layout: AppLayout<'a>,

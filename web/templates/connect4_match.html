@@ -1,58 +1,57 @@
 {% extends "app_layout.html" %}
 {% block main %}
 
-<div class="px-4 pt-6 2xl:px-0">
-    <div class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-        <!-- Match -->
-        <div id="state"
-            class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-            {% block state %}
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex-shrink-0">
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Match</h2>
-                </div>
+<!-- <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-3 xl:px-0 xl:gap-4 dark:bg-gray-900"> -->
+<div class="grid gap-4 px-4 mb-4 md:grid-cols-2 xl:grid-cols-2 xl:px-0">
+    <div id="state" class="p-4 space-y-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+        {% block state %}
+        <div class="px-4 py-2 text-gray-400">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Match {{connect4_match.id}}</h2>
+            <div class="text-sm font-normal text-gray-900 whitespace-nowrap dark:text-white">
+                {% match connect4_match.status %}
+
+                {% when types::Status::Over with {winner} %}
+
+                {% match winner %}
+                {% when Some with (0) %}
+                <div>Blue Wins</div>
+                {% when Some with (1) %}
+                <div>Red Wins</div>
+                {% when None %}
+                <div>It's a Tie</div>
+                {% else %}
+                {% endmatch %}
+
+                {% when types::Status::InProgress with {next_player} %}
+                
+                {% match next_player %}
+                {% when 0 %}
+                <div>Blue's Turn</div>
+                {% when 1 %}
+                <div>Red's Turn</div>
+                {% else %}
+                {% endmatch %}
+                
+
+                {% let player = connect4_match.players.get(next_player.clone()).unwrap() %}
+                {% match player %}
+                {% when types::Player::User(user) %}
+
+                {% if user.username == auth_user.username %}
+                <div class="font-semibold">That's You</div>
+                {% else %}
+                <div class="font-semibold">Waiting on {{ user.username }}</div>
+                {% endif %}
+
+                {% when types::Player::Agent(agent) %}
+                <div class="font-semibold">Waiting on {{ agent.username }}/{{ agent.agentname }}</div>
+                {% endmatch %}
+
+                {% else %}
+                {% endmatch %}
             </div>
-            {% match connect4_match.status %}
-
-            {% when types::Status::Over with {winner} %}
-
-            {% match winner %}
-            {% when Some with (0) %}
-            <h2>Blue Wins</h2>
-            {% when Some with (1) %}
-            <h2>Red Wins</h2>
-            {% when None %}
-            <h2>It's a Tie</h2>
-            {% else %}
-            {% endmatch %}
-
-            {% when types::Status::InProgress with {next_player} %}
-
-            {% match next_player %}
-            {% when 0 %}
-            <h2>Blue's Turn</h2>
-            {% when 1 %}
-            <h2>Red's Turn</h2>
-            {% else %}
-            {% endmatch %}
-
-            {% let player = connect4_match.players.get(next_player.clone()).unwrap() %}
-            {% match player %}
-            {% when types::Player::User(user) %}
-
-            {% if user.username == auth_user.username %}
-            <h2>That's You</h2>
-            {% else %}
-            <h2>Waiting on {{ user.username }}</h2>
-            {% endif %}
-
-            {% when types::Player::Agent(agent) %}
-            <h2>Waiting on {{ agent.username }}/{{ agent.agentname }}</h2>
-            {% endmatch %}
-
-            {% else %}
-            {% endmatch %}
-
+        </div>
+        <div class="px-4 py-2 text-gray-400">
             <svg width="350px" viewBox="0 0 700 700" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <pattern id="cell-pattern" patternUnits="userSpaceOnUse" width="100" height="100">
@@ -110,18 +109,18 @@
                 </svg>
                 {% endfor %}
             </svg>
-
-            {% endblock state %}
         </div>
-        <!-- Turns -->
-        <div
-            class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex-shrink-0">
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Turns</h2>
-                </div>
-            </div>
-            <span>Coming Soon</span>
+        {% endblock state %}
+    </div>
+    <div class="p-4 space-y-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+        <div class="px-4 py-2 text-gray-400 border border-gray-200 border-dashed rounded dark:border-gray-600">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Turns</h2>
+        </div>
+        <div class="h-16 px-4 py-2 text-gray-400 border border-gray-200 border-dashed rounded dark:border-gray-600">
+            Coming Soon
+        </div>
+        <div class="px-4 py-2 text-gray-400 border border-gray-200 border-dashed rounded dark:border-gray-600">
+            <h3>Card footer</h3>
         </div>
     </div>
 </div>

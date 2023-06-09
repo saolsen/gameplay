@@ -72,7 +72,14 @@ async fn main() {
         .route("/health", get(web::health))
         .route("/refresh", get(web::refresh))
         .route("/", get(web::root))
+        // dashboard pages
         .route("/app", get(web::app))
+        .route("/app/me", get(web::app_me))
+        .route("/app/me/matches", get(web::app_me_matches))
+        .route("/app/me/agents", get(web::app_me_agents))
+        .route("/app/games", get(web::app_games))
+        .route("/app/users", get(web::app_users))
+        .route("/app/agents", get(web::app_agents))
         .route(
             "/app/games/connect4/matches/create_match",
             post(web::connect4_create_match),

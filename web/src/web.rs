@@ -584,3 +584,81 @@ pub async fn connect4_match_create_turn<'a>(
         Err((status, body)) => (status, askama_axum::IntoResponse::into_response(body)),
     }
 }
+
+#[tracing::instrument(skip(app_layout, _state))]
+pub async fn app_me<'a>(
+    auth_user: types::UserRecord,
+    app_layout: templates::AppLayout<'a>,
+    State(_state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let index = templates::AppPlayground {
+        _layout: app_layout,
+        page: "me".to_owned(),
+    };
+    index.into_response()
+}
+
+#[tracing::instrument(skip(app_layout, _state))]
+pub async fn app_me_matches<'a>(
+    auth_user: types::UserRecord,
+    app_layout: templates::AppLayout<'a>,
+    State(_state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let index = templates::AppPlayground {
+        _layout: app_layout,
+        page: "me matches".to_owned(),
+    };
+    index.into_response()
+}
+
+#[tracing::instrument(skip(app_layout, _state))]
+pub async fn app_me_agents<'a>(
+    auth_user: types::UserRecord,
+    app_layout: templates::AppLayout<'a>,
+    State(_state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let index = templates::AppPlayground {
+        _layout: app_layout,
+        page: "me agents".to_owned(),
+    };
+    index.into_response()
+}
+
+#[tracing::instrument(skip(app_layout, _state))]
+pub async fn app_games<'a>(
+    auth_user: types::UserRecord,
+    app_layout: templates::AppLayout<'a>,
+    State(_state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let index = templates::AppPlayground {
+        _layout: app_layout,
+        page: "games".to_owned(),
+    };
+    index.into_response()
+}
+
+#[tracing::instrument(skip(app_layout, _state))]
+pub async fn app_users<'a>(
+    auth_user: types::UserRecord,
+    app_layout: templates::AppLayout<'a>,
+    State(_state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let index = templates::AppPlayground {
+        _layout: app_layout,
+        page: "users".to_owned(),
+    };
+    index.into_response()
+}
+
+#[tracing::instrument(skip(app_layout, _state))]
+pub async fn app_agents<'a>(
+    auth_user: types::UserRecord,
+    app_layout: templates::AppLayout<'a>,
+    State(_state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let index = templates::AppPlayground {
+        _layout: app_layout,
+        page: "agents".to_owned(),
+    };
+    index.into_response()
+}
