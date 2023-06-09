@@ -1,7 +1,6 @@
-use crate::connect4::Connect4Result;
+use crate::connect4::Connect4Check;
 use crate::forms::create_match;
-use crate::matches::get_match_by_id;
-use crate::{config, connect4, migrations, templates, types};
+use crate::{config, connect4, matches, migrations, templates, types};
 use askama_axum::IntoResponse as _;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
@@ -212,8 +211,8 @@ pub async fn connect4_create_match<'a>(
                     if let Some((id, username)) = conn
                         .query_row(
                             r#"
-                        SELECT id, username from user WHERE username = ?;
-                    "#,
+                                SELECT id, username from user WHERE username = ?;
+                            "#,
                             [player_name],
                             |row| {
                                 let id = row.get(0)?;
@@ -236,16 +235,16 @@ pub async fn connect4_create_match<'a>(
                         if let Some((id, username, agentname)) = conn
                             .query_row(
                                 r#"
-                                SELECT
-                                  agent.id,
-                                  user.username,
-                                  agent.agentname
-                                FROM agent
-                                JOIN user ON agent.user_id = user.id
-                                WHERE user.username = ?
-                                AND agent.agentname = ?
-                                AND agent.game = 'connect4'
-                            "#,
+                                    SELECT
+                                      agent.id,
+                                      user.username,
+                                      agent.agentname
+                                    FROM agent
+                                    JOIN user ON agent.user_id = user.id
+                                    WHERE user.username = ?
+                                    AND agent.agentname = ?
+                                    AND agent.game = 'connect4'
+                                "#,
                                 [&split_username, &split_agentname],
                                 |row| {
                                     let id = row.get(0)?;
@@ -446,7 +445,7 @@ pub async fn connect4_match<'a>(
     let maybe_match: Option<types::Match<types::Connect4Action, types::Connect4State>> =
         tokio::task::spawn_blocking(move || {
             let conn = state.pool.get().unwrap();
-            get_match_by_id(&conn, match_id)
+            matches::get_by_id(&conn, match_id)
         })
         .instrument(info_span!("get_match"))
         .await
@@ -481,7 +480,7 @@ pub async fn connect4_match_create_turn<'a>(
 ) -> impl IntoResponse {
     let result = tokio::task::spawn_blocking(move || {
         let conn = state.pool.get().unwrap();
-        let maybe_match = get_match_by_id(&conn, match_id);
+        let maybe_match = matches::get_by_id(&conn, match_id);
 
         let match_ = match maybe_match {
             None => return Err((StatusCode::BAD_REQUEST, "Match not found".to_owned())),
@@ -517,20 +516,20 @@ pub async fn connect4_match_create_turn<'a>(
             column: form.column,
         };
         let mut state = match_.state;
-        if let Err(error) = connect4::take_turn(&mut state, &action, form.player) {
-            return Err((StatusCode::BAD_REQUEST, error));
+        if let Err(error) = connect4::apply_action(&mut state, &action, form.player) {
+            return Err((StatusCode::BAD_REQUEST, error.to_string()));
         }
 
         // Check for win
-        let result = connect4::check(&state);
-        let (status, winner, next_player) = match result {
-            Connect4Result::Winner(player) => {
+        let check = connect4::check(&state);
+        let (status, winner, next_player) = match check {
+            Connect4Check::Winner(player) => {
                 ("over", Some(player), None)
             },
-            Connect4Result::Tie => {
+            Connect4Check::Tie => {
                 ("over", None, None)
             },
-            Connect4Result::InProgress => {
+            Connect4Check::InProgress => {
                 ("in_progress", None, Some((form.player + 1) % 2))
             },
         };
@@ -561,7 +560,7 @@ pub async fn connect4_match_create_turn<'a>(
             }
         }
 
-        if let Some(_match) = get_match_by_id(&conn, match_id) {
+        if let Some(_match) = matches::get_by_id(&conn, match_id) {
             Ok(_match)
         } else {
             Err((

@@ -1,15 +1,28 @@
 #![allow(clippy::identity_op)]
+use thiserror::Error;
 
 use crate::types;
 
 const ROWS: usize = 6;
 const COLS: usize = 7;
 
-pub fn take_turn(
+#[derive(Error, Debug)]
+pub enum ActionError {
+    #[error("Column must be between 0 and 6. Got `{0}`.")]
+    UnknownColumn(usize),
+    #[error("Column `{0}` is full.")]
+    FullColumn(usize),
+}
+
+pub fn apply_action(
     state: &mut types::Connect4State,
     action: &types::Connect4Action,
     player: usize,
-) -> Result<(), String> {
+) -> Result<(), ActionError> {
+    use ActionError::*;
+    if action.column >= COLS {
+        return Err(UnknownColumn(action.column));
+    }
     for row in 0..ROWS {
         let cell = &mut state.board[action.column * ROWS + row];
         if cell.is_none() {
@@ -17,21 +30,20 @@ pub fn take_turn(
             break;
         }
         if row == ROWS - 1 {
-            return Err("Column is full".to_owned());
+            return Err(FullColumn(action.column));
         }
     }
     Ok(())
 }
 
-pub enum Connect4Result {
+pub enum Connect4Check {
     Winner(usize),
     Tie,
     InProgress,
 }
 
-// Check for a winner
-
-pub fn check(state: &types::Connect4State) -> Connect4Result {
+pub fn check(state: &types::Connect4State) -> Connect4Check {
+    use Connect4Check::*;
     // Check vertical wins
     for col in 0..COLS {
         for row in 0..3 {
@@ -42,7 +54,7 @@ pub fn check(state: &types::Connect4State) -> Connect4Result {
                 state.board[col * ROWS + row + 3],
             ) {
                 (Some(i), Some(j), Some(k), Some(l)) if i == j && j == k && k == l => {
-                    return Connect4Result::Winner(i)
+                    return Winner(i)
                 }
                 _ => (),
             }
@@ -59,7 +71,7 @@ pub fn check(state: &types::Connect4State) -> Connect4Result {
                 state.board[(col + 3) * ROWS + row],
             ) {
                 (Some(i), Some(j), Some(k), Some(l)) if i == j && j == k && k == l => {
-                    return Connect4Result::Winner(i)
+                    return Winner(i)
                 }
                 _ => (),
             }
@@ -76,7 +88,7 @@ pub fn check(state: &types::Connect4State) -> Connect4Result {
                 state.board[(col + 3) * ROWS + row + 3],
             ) {
                 (Some(i), Some(j), Some(k), Some(l)) if i == j && j == k && k == l => {
-                    return Connect4Result::Winner(i)
+                    return Winner(i)
                 }
                 _ => (),
             }
@@ -93,7 +105,7 @@ pub fn check(state: &types::Connect4State) -> Connect4Result {
                 state.board[(col + 3) * ROWS + row - 3],
             ) {
                 (Some(i), Some(j), Some(k), Some(l)) if i == j && j == k && k == l => {
-                    return Connect4Result::Winner(i)
+                    return Winner(i)
                 }
                 _ => (),
             }
@@ -103,9 +115,9 @@ pub fn check(state: &types::Connect4State) -> Connect4Result {
     // Check for tie
     for col in 0..COLS {
         if state.board[col * ROWS + ROWS - 1].is_none() {
-            return Connect4Result::InProgress;
+            return InProgress;
         }
     }
 
-    Connect4Result::Tie
+    Tie
 }

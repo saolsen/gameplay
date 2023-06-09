@@ -2,7 +2,7 @@ use rusqlite::OptionalExtension;
 
 use crate::types;
 
-pub fn get_match_by_id(
+pub fn get_by_id(
     conn: &types::Conn,
     match_id: i64,
 ) -> Option<types::Match<types::Connect4Action, types::Connect4State>> {
@@ -100,7 +100,7 @@ pub fn get_match_by_id(
         let mut players = vec![];
         for (i, player) in match_players.enumerate() {
             let (n, p) = player.unwrap();
-            assert!(i == n as usize);
+            assert_eq!(i, n as usize);
             players.push(p);
         }
 
@@ -142,7 +142,7 @@ pub fn get_match_by_id(
         let mut turns = vec![];
         for (i, turn) in match_turns.enumerate() {
             let t = turn.unwrap();
-            assert!(i == t.number);
+            assert_eq!(i, t.number);
             turns.push(t);
         }
 
@@ -158,4 +158,16 @@ pub fn get_match_by_id(
         return Some(match_);
     }
     None
+}
+
+pub fn create(conn: &types::Conn) {
+    unimplemented!()
+}
+
+pub fn user_turn(conn: &types::Conn) {
+    unimplemented!()
+}
+
+pub fn agent_turn(conn: &types::Conn) {
+    unimplemented!()
 }

@@ -2323,6 +2323,7 @@ dependencies = [
  "sentry-tracing",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tower-http",
  "tracing",
