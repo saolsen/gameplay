@@ -95,6 +95,17 @@ lazy_static! {
                 ALTER TABLE agent_deployment RENAME TO agent_http;
             "#
         ),
+        M::up(
+            r#"
+                ALTER TABLE agent_http
+                ADD COLUMN
+                status TEXT CHECK(status IN ('pending', 'active', 'error')) NOT NULL DEFAULT 'pending';
+                
+                ALTER TABLE agent_http
+                ADD COLUMN
+                error TEXT;
+            "#
+        ),
     ]);
 }
 

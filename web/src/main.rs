@@ -80,6 +80,7 @@ async fn main() {
         .route("/app/games", get(web::app_games))
         .route("/app/users", get(web::app_users))
         .route("/app/agents", get(web::app_agents))
+        .route("/app/agents/create_agent", post(web::create_agent))
         .route(
             "/app/games/connect4/matches/create_match",
             post(web::connect4_create_match),

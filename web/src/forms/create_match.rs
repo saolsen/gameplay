@@ -116,9 +116,3 @@ pub struct CreateMatchFormData {
     pub player_type_2: String,
     pub player_name_2: String,
 }
-
-#[derive(Debug)]
-pub struct CreateMatch {
-    pub blue_player: types::Player,
-    pub red_player: types::Player,
-}

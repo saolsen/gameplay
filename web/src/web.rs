@@ -1,9 +1,9 @@
 use crate::connect4::Connect4Check;
-use crate::forms::create_match;
+use crate::forms::{create_agent, create_match};
 use crate::{config, connect4, matches, migrations, templates, types};
 use askama_axum::IntoResponse as _;
 use axum::extract::{Path, Query, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode, Uri};
 use axum::response::IntoResponse;
 use axum::Form;
 use jwt_simple::algorithms::RS256PublicKey;
@@ -85,8 +85,128 @@ pub async fn app<'a>(
     let index = templates::AppIndex {
         _layout: app_layout,
         create_match: create_match::CreateMatchForm::default(&auth_user),
+        create_agent: create_agent::CreateAgentForm::default(),
     };
     index.into_response()
+}
+
+#[tracing::instrument(skip(state))]
+pub async fn create_agent<'a>(
+    auth_user: types::UserRecord,
+    State(state): State<Arc<AppState>>,
+    Form(form): Form<create_agent::CreateAgentFormData>,
+) -> impl IntoResponse {
+    let (agent_id, response) = tokio::task::spawn_blocking(move || {
+        let mut conn = state.pool.get().unwrap();
+        assert_eq!(form.game, "connect4");
+
+        let mut agentname_error = None;
+        let mut url_error = None;
+
+        let agentname = form.agentname;
+        let url = form.url;
+
+        let valid_agentname = agentname
+            .chars()
+            .all(|c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_'));
+        if !valid_agentname {
+            agentname_error = Some(
+                "Agent name can only contain letters, numbers, hyphens and underscores".to_owned(),
+            );
+        } else {
+            let name_exists = conn
+                .query_row(
+                    r#"
+                        select 1
+                        from agent
+                        where user_id = ? and agentname = ?
+                    "#,
+                    params![auth_user.id, agentname],
+                    |row| row.get::<_, i64>(0),
+                )
+                .optional()
+                .unwrap()
+                .unwrap_or(0)
+                != 0;
+            if name_exists {
+                agentname_error = Some("You already have an agent with that name".to_owned());
+            }
+        }
+
+        let uri = url.parse::<Uri>();
+        match &uri {
+            Err(e) => {
+                url_error = Some("URL is not valid".to_owned());
+            }
+            Ok(uri) => {
+                if uri.scheme_str() != Some("http") && uri.scheme_str() != Some("https") {
+                    url_error = Some("URL must be http or https".to_owned());
+                }
+                if uri.host().is_none() {
+                    url_error = Some("URL must have a host".to_owned());
+                }
+            }
+        }
+
+        if agentname_error.is_some() || url_error.is_some() {
+            return (
+                None,
+                (
+                    HeaderMap::new(),
+                    create_agent::CreateAgentForm {
+                        game: "connect4".to_owned(),
+                        agentname,
+                        url,
+                        agentname_error,
+                        url_error,
+                    }
+                    .into_response(),
+                ),
+            );
+        }
+
+        let url = uri.unwrap().to_string();
+
+        // Create the agent.
+        let agent_id = {
+            let tx = conn.transaction().unwrap();
+            tx.execute(
+                r#"
+                    insert into agent (user_id, game, agentname)
+                    values (?, ?, ?)
+                "#,
+                params![auth_user.id, "connect4", agentname],
+            )
+            .unwrap();
+            let agent_id = tx.last_insert_rowid();
+            tx.execute(
+                r#"
+                    insert into agent_http (agent_id, url, status, error)
+                    values (?, ?, 'pending', null)
+                "#,
+                params![agent_id, url],
+            )
+            .unwrap();
+            tx.commit().unwrap();
+            agent_id
+        };
+        eprintln!("agent_id: {}", agent_id);
+
+        let form = create_agent::CreateAgentForm::default();
+        let mut headers = HeaderMap::new();
+        headers.insert("hx-trigger", "AgentUpdate".parse().unwrap());
+        (Some(agent_id), (headers, form.into_response()))
+    })
+    .instrument(info_span!("create_agent"))
+    .await
+    .unwrap();
+
+    // todo: Schedule the task that validates the agent
+    if let Some(agent_id) = agent_id {
+        eprintln!("agent_id: {}", agent_id);
+    }
+
+    response
 }
 
 // note: I'm doing everything in-line to start. It's very tbd what things go in which modules
@@ -229,8 +349,6 @@ pub async fn connect4_create_match<'a>(
                     }
                 }
                 "agent" => {
-                    // TODO: Make sure agent names have same rules as user names.
-                    // Can only contain letters, numbers and hyphens and underscores.
                     if let Some((split_username, split_agentname)) = player_name.split_once('/') {
                         if let Some((id, username, agentname)) = conn
                             .query_row(
@@ -342,18 +460,18 @@ pub async fn connect4_create_match<'a>(
             let tx = conn.transaction().unwrap();
             tx.execute(
                 r#"
-                INSERT INTO match (game, created_by)
-                VALUES (?, ?)
-            "#,
+                    INSERT INTO match (game, created_by)
+                    VALUES (?, ?)
+                "#,
                 params!["connect4", auth_user.id],
             )
             .unwrap();
             let match_id = tx.last_insert_rowid();
             tx.execute(
                 r#"
-                INSERT INTO match_player (match_id, number, user_id, agent_id)
-                VALUES (?, ?, ?, ?)
-            "#,
+                    INSERT INTO match_player (match_id, number, user_id, agent_id)
+                    VALUES (?, ?, ?, ?)
+                "#,
                 params![
                     // blue player
                     match_id,
@@ -365,9 +483,9 @@ pub async fn connect4_create_match<'a>(
                 .unwrap();
             tx.execute(
                 r#"
-                INSERT INTO match_player (match_id, number, user_id, agent_id)
-                VALUES (?, ?, ?, ?)
-            "#,
+                    INSERT INTO match_player (match_id, number, user_id, agent_id)
+                    VALUES (?, ?, ?, ?)
+                "#,
                 params![
                     // red player
                     match_id,
@@ -378,9 +496,9 @@ pub async fn connect4_create_match<'a>(
             ).unwrap();
             tx.execute(
                 r#"
-                INSERT INTO match_turn (match_id, number, player, action, status, winner, next_player, state)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            "#,
+                    INSERT INTO match_turn (match_id, number, player, action, status, winner, next_player, state)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                "#,
                 params![
                     match_id,
                     turns[0].number,
@@ -408,8 +526,8 @@ pub async fn connect4_create_match<'a>(
         headers.insert("hx-location", location.to_string().parse().unwrap());
         (headers, form.into_response())
     }).instrument(info_span!("create_match"))
-    .await
-    .unwrap()
+        .await
+        .unwrap()
 }
 
 #[tracing::instrument(skip(state))]

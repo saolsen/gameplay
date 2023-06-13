@@ -8,7 +8,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::config;
-use crate::forms::create_match;
+use crate::forms::{create_agent, create_match};
 use crate::types;
 use crate::web;
 
@@ -87,6 +87,7 @@ impl<'a> FromRequestParts<Arc<web::AppState>> for AppLayout<'a> {
 pub struct AppIndex<'a> {
     pub _layout: AppLayout<'a>,
     pub create_match: create_match::CreateMatchForm,
+    pub create_agent: create_agent::CreateAgentForm,
 }
 
 impl<'a> Deref for AppIndex<'a> {
