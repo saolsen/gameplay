@@ -4,3 +4,4 @@ db
 .idea
 .vscode
 fly.toml
+.envrc
