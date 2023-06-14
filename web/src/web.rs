@@ -190,14 +190,13 @@ pub async fn create_agent<'a>(
             tx.commit().unwrap();
             agent_id
         };
-        eprintln!("agent_id: {}", agent_id);
 
         let form = create_agent::CreateAgentForm::default();
         let mut headers = HeaderMap::new();
         headers.insert("hx-trigger", "AgentUpdate".parse().unwrap());
         (Some(agent_id), (headers, form.into_response()))
     })
-    .instrument(info_span!("create_agent"))
+    .instrument(info_span!("create_agent_sync"))
     .await
     .unwrap();
 
@@ -431,15 +430,6 @@ pub async fn connect4_create_match<'a>(
             types::Player::Agent(_) => (None, Some(red_player_id)),
         };
 
-        println!(
-            "blue_player_id: {}, blue_player: {:?}",
-            blue_player_id, blue_player
-        );
-        println!(
-            "red_player_id: {}, red_player: {:?}",
-            red_player_id, red_player
-        );
-
         // New Match
         let game = types::Game::Connect4;
         let turns: Vec<types::Turn<types::Connect4Action>> = vec![
@@ -453,9 +443,6 @@ pub async fn connect4_create_match<'a>(
             board: vec![None; 42],
         };
 
-        println!("game: {}", serde_json::to_string(&game).unwrap());
-
-        // todo: handle sqlite errors, hopefully everything is validated by now tho.
         let match_id = {
             let tx = conn.transaction().unwrap();
             tx.execute(
@@ -516,8 +503,6 @@ pub async fn connect4_create_match<'a>(
             match_id
         };
 
-        println!("match_id: {}", match_id);
-
         let form = create_match::CreateMatchForm::default(&auth_user);
         let location =
             json!({"path": format!("/app/games/connect4/matches/{match_id}"), "target": "#main"});
@@ -525,7 +510,7 @@ pub async fn connect4_create_match<'a>(
         let mut headers = HeaderMap::new();
         headers.insert("hx-location", location.to_string().parse().unwrap());
         (headers, form.into_response())
-    }).instrument(info_span!("create_match"))
+    }).instrument(info_span!("create_match_sync"))
         .await
         .unwrap()
 }
@@ -547,7 +532,7 @@ pub async fn connect4_selects<'a>(
             ),
         }
     })
-    .instrument(info_span!("get_selects"))
+    .instrument(info_span!("get_selects_sync"))
     .await
     .unwrap()
 }
@@ -565,7 +550,7 @@ pub async fn connect4_match<'a>(
             let conn = state.pool.get().unwrap();
             matches::get_by_id(&conn, match_id)
         })
-        .instrument(info_span!("get_match"))
+        .instrument(info_span!("get_match_sync"))
         .await
         .unwrap();
 
@@ -687,7 +672,7 @@ pub async fn connect4_match_create_turn<'a>(
             ))
         }
     })
-    .instrument(info_span!("create_turn"))
+    .instrument(info_span!("create_turn_sync"))
     .await
     .unwrap();
 
