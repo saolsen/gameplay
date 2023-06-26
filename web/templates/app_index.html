@@ -1,110 +1,21 @@
 {% extends "app_layout.html" %}
 {% block main %}
 
-<div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-3 xl:px-0 xl:gap-4 dark:bg-gray-900">
-    <div class="mb-4 col-span-full xl:mb-2">
-        <nav class="flex mb-5" aria-label="Breadcrumb">
-            <ol class="inline-flex items-center space-x-1 text-sm font-medium md:space-x-2">
-              <li class="inline-flex items-center">
-                <a href="/app" class="inline-flex items-center text-gray-700 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-500">
-                  <svg class="w-5 h-5 mr-2.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
-                </a>
-              </li>
-            </ol>
-        </nav>
-    </div>
-    <!-- Right Content -->
-    <div class="col-span-full xl:col-auto">
-        <div class="p-4 mb-4 space-y-6 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-            <div class="px-4 py-2">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Create A Match</h2>
-            </div>
-            <div class="px-4 py-2 text-gray-400">
-                {{ create_match|safe }}
-            </div>
-        </div>
-        <div class="p-4 mb-4 space-y-6 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-            <div class="px-4 py-2 text-gray-400">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Create An Agent</h2>
-            </div>
-            <div class="px-4 py-2 text-gray-400">
-                {{ create_agent|safe }}
-            </div>
-        </div>
-    </div>
-    <div class="col-span-2">
-        <div class="p-4 mb-4 space-y-6 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-            <div class="px-4 py-2 text-gray-400">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Your Matches</h2>
-            </div>
-                <div class="flex flex-col mt-6">
-                    <div class="overflow-x-auto rounded-lg">
-                        <div class="inline-block min-w-full align-middle">
-                            <div class="overflow-hidden shadow sm:rounded-lg">
-                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
-                                    <thead class="bg-gray-50 dark:bg-gray-700">
-                                        <tr>
-                                            <th scope="col" class="p-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-white">
-                                                ID
-                                            </th>
-                                            <th scope="col" class="p-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-white">
-                                                Game
-                                            </th>
-                                            <th scope="col" class="p-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-white">
-                                                Created
-                                            </th>
-                                            <th scope="col" class="p-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-white">
-                                                Blue
-                                            </th>
-                                            <th scope="col" class="p-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-white">
-                                                Red
-                                            </th>
-                                            <th scope="col" class="p-4 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-white">
-                                                Status
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="bg-white dark:bg-gray-800">
-                                        <tr>
-                                            <td class="p-4 text-sm font-normal text-gray-500 whitespace-nowrap dark:text-gray-400">
-                                                <a href="/app/games/connect4/matches/12" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">12</a>
-                                            </td>
-                                            <td class="p-4 text-sm font-normal text-gray-900 whitespace-nowrap dark:text-white">
-                                                Connect4
-                                            </td>
-                                            <td class="p-4 text-sm font-normal text-gray-500 whitespace-nowrap dark:text-gray-400">
-                                                Apr 23 ,2021
-                                            </td>
-                                            <td class="p-4 text-sm font-semibold text-gray-900 whitespace-nowrap dark:text-white">
-                                                steve
-                                            </td>
-                                            <td class="p-4 text-sm font-semibold text-gray-900 whitespace-nowrap dark:text-white">
-                                                steve/random
-                                            </td>
-                                            <td class="p-4 whitespace-nowrap">
-                                                <span class="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-md dark:bg-gray-700 dark:text-blue-400 border border-blue-100 dark:border-blue-500">Blue Won</span>
-                                                <span class="bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-md dark:bg-gray-700 dark:text-red-400 border border-red-100 dark:border-red-500">Red Won</span>
-                                                <span class="bg-orange-100 text-orange-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-md dark:bg-gray-700 dark:text-orange-400 border border-orange-100 dark:border-orange-500">Draw</span>
-                                                <span class="bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-md dark:bg-gray-700 dark:text-green-400 border border-green-100 dark:border-green-500">Your Turn</span>
-                                                <span class="bg-purple-100 text-purple-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-md border border-purple-100 dark:bg-gray-700 dark:border-purple-500 dark:text-purple-400">Waiting for other player</span>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-        </div>
-        <div class="p-4 mb-4 space-y-6 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-            <div class="px-4 py-2 text-gray-400">
-                <h3>Your Agents</h3>
-            </div>
-            <div class="h-32 px-4 py-2 text-gray-400">
-                <span>Coming Soon</span>
-            </div>
-        </div>
-    </div>
+<div id="content" class="f-row flex-wrap:wrap">
+    <section class="box flex-grow:2">
+        <h2>Create a Match</h2>
+        {{ create_match|safe }}
+    </section>
+    <section class="box flex-grow:1">
+        <h2>Create an Agent</h2>
+        {{ create_agent|safe }}
+    </section>
+    <section class="box flex-grow:1">
+        <h2>Your Matches</h2>
+    </section>
+    <section class="box flex-grow:1">
+        <h2>Your Agents</h2>
+    </section>
 </div>
 
 {% endblock main %}

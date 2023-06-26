@@ -5,11 +5,13 @@ use askama_axum::IntoResponse as _;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode, Uri};
 use axum::response::IntoResponse;
-use axum::Form;
+use axum::{Form, Json};
+use base64::Engine;
 use jwt_simple::algorithms::RS256PublicKey;
 use rusqlite::{params, OptionalExtension};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{info_span, Instrument};
 
@@ -17,6 +19,7 @@ use tracing::{info_span, Instrument};
 pub struct AppState {
     pub key: RS256PublicKey,
     pub pool: types::Pool,
+    pub qstash_client: reqwest::Client,
 }
 
 impl AppState {
@@ -30,13 +33,31 @@ impl AppState {
                 "#,
             )
         });
+
         let pool = types::Pool::new(manager).unwrap();
         {
             let mut conn = pool.get().unwrap();
             migrations::migrate(&mut conn).unwrap();
         }
         let key = RS256PublicKey::from_pem(&config::CLERK_PUB_ENCRYPTION_KEY).unwrap();
-        Self { pool, key }
+
+        let qstash_client = reqwest::Client::builder()
+            .user_agent("gameplay.computer")
+            .default_headers({
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    "Authorization",
+                    format!("Bearer {}", *config::QSTASH_TOKEN).parse().unwrap(),
+                );
+                headers
+            })
+            .build()
+            .unwrap();
+        Self {
+            pool,
+            key,
+            qstash_client,
+        }
     }
 }
 
@@ -135,7 +156,7 @@ pub async fn create_agent<'a>(
 
         let uri = url.parse::<Uri>();
         match &uri {
-            Err(e) => {
+            Err(_) => {
                 url_error = Some("URL is not valid".to_owned());
             }
             Ok(uri) => {
@@ -431,7 +452,6 @@ pub async fn connect4_create_match<'a>(
         };
 
         // New Match
-        let game = types::Game::Connect4;
         let turns: Vec<types::Turn<types::Connect4Action>> = vec![
             types::Turn {
                 number: 0,
@@ -764,4 +784,91 @@ pub async fn app_agents<'a>(
         page: "agents".to_owned(),
     };
     index.into_response()
+}
+
+#[tracing::instrument(skip(_state))]
+pub async fn test<'a>(
+    State(_state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> impl IntoResponse {
+    eprintln!("test");
+    eprintln!("headers: {:?}", headers);
+    eprintln!("payload: {:?}", payload);
+    "you called my ass"
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct QStashCallback {
+    pub body: String,
+    pub header: HashMap<String, Vec<String>>,
+    pub source_message_id: String,
+    pub status: i64,
+}
+
+#[tracing::instrument(skip(_state))]
+pub async fn callback<'a>(
+    State(_state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(payload): Json<QStashCallback>,
+) -> impl IntoResponse {
+    eprintln!("callback");
+    eprintln!("headers: {:?}", headers);
+    eprintln!("payload: {:?}", payload);
+
+    let body = base64::engine::general_purpose::STANDARD
+        .decode(payload.body)
+        .unwrap();
+    eprintln!("body: {:?}", &body);
+    eprintln!("str: {:?}", String::from_utf8(body));
+
+    //let value: Value = serde_json::from_slice(&body).unwrap();
+    //eprintln!("value: {:?}", value);
+
+    "callback worked"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deserialize() {
+        let msg = r#"{"status":200,"sourceMessageId":"msg_5uKjY4Pt8maNdUs8BxV3r4AtGkpz","header":{"Content-Length":["17"],"Content-Type":["text/plain; charset=utf-8"],"Date":["Wed, 14 Jun 2023 20:04:56 GMT"],"Ngrok-Trace-Id":["a97d3aa2cbb6a5405f6d42f596eabbb1"]},"body":"eW91IGNhbGxlZCBteSBhc3M="}"#;
+        let payload: QStashCallback = serde_json::from_str(msg).unwrap();
+        eprintln!("{:?}", payload);
+    }
+
+    #[tokio::test]
+    async fn test_qstash() {
+        let qstash_client = reqwest::Client::builder()
+            .user_agent("gameplay.computer")
+            .default_headers({
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    "Authorization",
+                    format!("Bearer {}", *config::QSTASH_TOKEN).parse().unwrap(),
+                );
+                headers
+            })
+            .build()
+            .unwrap();
+        qstash_client
+            .post(format!(
+                "https://qstash.upstash.io/v1/publish/{}/test",
+                *config::ROOT_URL
+            ))
+            .header(
+                "Upstash-Callback",
+                format!("{}/callback", *config::ROOT_URL),
+            )
+            .json(&json!({
+                "url": "https://gameplay.computer",
+                "ttl": 60 * 60 * 24 * 7,
+            }))
+            .send()
+            .await
+            .unwrap();
+    }
 }

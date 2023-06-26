@@ -160,14 +160,14 @@ pub fn get_by_id(
     None
 }
 
-pub fn create(conn: &types::Conn) {
+pub fn create(_conn: &types::Conn) {
     unimplemented!()
 }
 
-pub fn user_turn(conn: &types::Conn) {
+pub fn user_turn(_conn: &types::Conn) {
     unimplemented!()
 }
 
-pub fn agent_turn(conn: &types::Conn) {
+pub fn agent_turn(_conn: &types::Conn) {
     unimplemented!()
 }

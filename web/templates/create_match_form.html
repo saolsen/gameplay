@@ -1,150 +1,55 @@
-<form hx-post="/app/games/connect4/matches/create_match">
-    <div class="mb-6">
-        <h3 class="mb-4 font-semibold text-gray-900 dark:text-white
-        {% match blue_error %}
-        {% when Some with (error) %}
-        text-red-700
-        {% else %}
-        {% endmatch %}
-        ">Blue Player</h3>
-        <ul class="items-center w-full text-sm font-medium text-gray-900 border  rounded-lg sm:flex dark:bg-gray-700 dark:border-gray-600 dark:text-white
-        {% match blue_error %}
-        {% when Some with (error) %}
-        bg-red-50 border-red-500
-        {% else %}
-        bg-white border-gray-200
-        {% endmatch %}
-        ">
-            <li class="w-full border-b border-gray-200 sm:border-b-0 sm:border-r dark:border-gray-600">
-                <div class="flex items-center pl-3">
-                    <input id="blue_me" type="radio" value="me" name="player_type_1"
-                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#blue_name"
-                        class="w-4 h-4 text-blue-600
-                        border-gray-300
-                        focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
-                        {% match blue.options %}
-                        {% when CreateMatchOptions::Me with (_) %}
-                            checked
-                        {% else %}
-                        {% endmatch %}
-                        >
-                    <label for="blue_me"
-                        class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Me</label>
-                </div>
-            </li>
-            <li class="w-full border-b border-gray-200 sm:border-b-0 sm:border-r dark:border-gray-600">
-                <div class="flex items-center pl-3">
-                    <input id="blue_user" type="radio" value="user" name="player_type_1"
-                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#blue_name"
-                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
-                        {% match blue.options %}
-                        {% when CreateMatchOptions::User with (_) %}
-                            checked
-                        {% else %}
-                        {% endmatch %}
-                        >
-                    <label for="blue_user"
-                        class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Other
-                        Human</label>
-                </div>
-            </li>
-            <li class="w-full border-b border-gray-200 sm:border-b-0 sm:border-r dark:border-gray-600">
-                <div class="flex items-center pl-3">
-                    <input id="blue_agent" type="radio" value="agent" name="player_type_1"
-                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#blue_name"
-                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
-                        {% match blue.options %}
-                        {% when CreateMatchOptions::Agent with (_) %}
-                            checked
-                        {% else %}
-                        {% endmatch %}
-                        >
-                    <label for="blue_agent"
-                        class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Agent</label>
-                </div>
-            </li>
-        </ul>
-        {% match blue_error %}
-        {% when Some with (error) %}
-        <p class="mt-2 text-sm text-red-600 dark:text-red-500">{{error}}</p>
-        {% else %}
-        {% endmatch %}
+<form hx-post="/app/games/connect4/matches/create_match" class="table">
+    {% match blue_error %}
+    {% when Some with (error) %}
+    <p class="row bad color border">{{error}}</p>
+    {% else %}
+    {% endmatch %}
+    <div class="row" role="radiogroup" aria-labelledby="blue-lbl">
+        <span id="blue-lbl">Blue Player</span>
+        <div>
+            <div><label><input type=radio name=player_type_1 value="me"
+                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#blue_name" {% match
+                        blue.options %} {% when CreateMatchOptions::Me with (_) %} checked {% else %} {% endmatch %}>
+                    Me</label></div>
+            <div><label><input type=radio name=player_type_1 value="user"
+                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#blue_name" {% match
+                        blue.options %} {% when CreateMatchOptions::User with (_) %} checked {% else %} {% endmatch %}>
+                    Other Human</label>
+            </div>
+            <div><label><input type=radio name=player_type_1 value="agent"
+                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#blue_name" {% match
+                        blue.options %} {% when CreateMatchOptions::Agent with (_) %} checked {% else %} {% endmatch %}>
+                    Agent</label></div>
+        </div>
     </div>
-    <div id="blue_name" class="mb-6">
+    <div id="blue_name" class="row">
         {{blue|safe}}
     </div>
-    <div class="mb-6">
-        <h3 class="mb-4 font-semibold text-gray-900 dark:text-white
-        {% match red_error %}
-        {% when Some with (error) %}
-        text-red-700
-        {% else %}
-        {% endmatch %}
-        ">Red Player</h3>
-        <ul class="items-center w-full text-sm font-medium text-gray-900 border rounded-lg sm:flex dark:bg-gray-700 dark:border-gray-600 dark:text-white
-        {% match red_error %}
-        {% when Some with (error) %}
-        bg-red-50 border-red-500
-        {% else %}
-        bg-white border-gray-200
-        {% endmatch %}
-        ">
-            <li class="w-full border-b border-gray-200 sm:border-b-0 sm:border-r dark:border-gray-600">
-                <div class="flex items-center pl-3">
-                    <input id="red_me" type="radio" value="me" name="player_type_2"
-                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#red_name"
-                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
-                        {% match red.options %}
-                        {% when CreateMatchOptions::Me with (_) %}
-                            checked
-                        {% else %}
-                        {% endmatch %}
-                        >
-                    <label for="red_me"
-                        class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Me</label>
-                </div>
-            </li>
-            <li class="w-full border-b border-gray-200 sm:border-b-0 sm:border-r dark:border-gray-600">
-                <div class="flex items-center pl-3">
-                    <input id="red_user" type="radio" value="user" name="player_type_2"
-                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#red_name"
-                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
-                        {% match red.options %}
-                        {% when CreateMatchOptions::User with (_) %}
-                            checked
-                        {% else %}
-                        {% endmatch %}
-                        >
-                    <label for="red_user"
-                        class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Other
-                        Human</label>
-                </div>
-            </li>
-            <li class="w-full border-b border-gray-200 sm:border-b-0 sm:border-r dark:border-gray-600">
-                <div class="flex items-center pl-3">
-                    <input id="red_agent" type="radio" value="agent" name="player_type_2"
-                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#red_name"
-                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
-                        {% match red.options %}
-                        {% when CreateMatchOptions::Agent with (_) %}
-                            checked
-                        {% else %}
-                        {% endmatch %}
-                        >
-                    <label for="red_agent"
-                        class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Agent</label>
-                </div>
-            </li>
-        </ul>
-        {% match red_error %}
-        {% when Some with (error) %}
-        <p class="mt-2 text-sm text-red-600 dark:text-red-500">{{error}}</p>
-        {% else %}
-        {% endmatch %}
+    {% match red_error %}
+    {% when Some with (error) %}
+    <p class="row bad color border">{{error}}</p>
+    {% else %}
+    {% endmatch %}
+    <div class="row" role="radiogroup" aria-labelledby="red-lbl">
+        <span id="red-lbl">Red Player</span>
+        <div>
+            <div><label><input type=radio name=player_type_2 value="me"
+                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#red_name" {% match
+                        red.options %} {% when CreateMatchOptions::Me with (_) %} checked {% else %} {% endmatch %}>
+                    Me</label></div>
+            <div><label><input type=radio name=player_type_2 value="user"
+                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#red_name" {% match
+                        red.options %} {% when CreateMatchOptions::User with (_) %} checked {% else %} {% endmatch %}>
+                    Other Human</label>
+            </div>
+            <div><label><input type=radio name=player_type_2 value="agent"
+                        hx-get="/app/games/connect4/matches/create_match/selects" hx-target="#red_name" {% match
+                        red.options %} {% when CreateMatchOptions::Agent with (_) %} checked {% else %} {% endmatch %}>
+                    Agent</label></div>
+        </div>
     </div>
-    <div id="red_name" class="mb-6">
+    <div class="row" id="red_name">
         {{red|safe}}
     </div>
-    <button type="submit"
-        class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Play</button>
+    <button type="submit">Play</button>
 </form>

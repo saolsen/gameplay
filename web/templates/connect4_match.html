@@ -1,12 +1,12 @@
 {% extends "app_layout.html" %}
 {% block main %}
 
-<div  id="state" class="grid gap-4 px-4 mb-4 md:grid-cols-2 xl:grid-cols-2 xl:px-0">
+<div id="state">
     {% block state %}
-    <div class="p-4 space-y-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-        <div class="px-4 py-2 text-gray-400">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Match {{connect4_match.id}}</h2>
-            <div class="text-sm font-normal text-gray-900 whitespace-nowrap dark:text-white">
+    <div class="f-row flex-wrap:wrap">
+        <section class="box flex-grow:2">
+            <h2>Match {{connect4_match.id}}</h2>
+            <div>
                 {% match connect4_match.status %}
 
                 {% when types::Status::Over with {winner} %}
@@ -22,7 +22,7 @@
                 {% endmatch %}
 
                 {% when types::Status::InProgress with {next_player} %}
-                
+
                 {% match next_player %}
                 {% when 0 %}
                 <div>Blue's Turn</div>
@@ -30,131 +30,113 @@
                 <div>Red's Turn</div>
                 {% else %}
                 {% endmatch %}
-                
+
 
                 {% let player = connect4_match.players.get(next_player.clone()).unwrap() %}
                 {% match player %}
                 {% when types::Player::User(user) %}
 
                 {% if user.username == auth_user.username %}
-                <div class="font-semibold">That's You</div>
+                <div>That's You</div>
                 {% else %}
-                <div class="font-semibold">Waiting on {{ user.username }}</div>
+                <div>Waiting on {{ user.username }}</div>
                 {% endif %}
 
                 {% when types::Player::Agent(agent) %}
-                <div class="font-semibold">Waiting on {{ agent.username }}/{{ agent.agentname }}</div>
+                <div>Waiting on {{ agent.username }}/{{ agent.agentname }}</div>
                 {% endmatch %}
 
                 {% else %}
                 {% endmatch %}
             </div>
-        </div>
-        <div class="px-4 py-2 text-gray-400">
-            <svg width="350px" viewBox="0 0 700 700" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <pattern id="cell-pattern" patternUnits="userSpaceOnUse" width="100" height="100">
-                        <circle cx="50" cy="50" r="45" fill="black"></circle>
-                    </pattern>
-                    <mask id="cell-mask">
-                        <rect width="100" height="600" fill="white"></rect>
-                        <rect width="100" height="600" fill="url(#cell-pattern)"></rect>
-                    </mask>
-                </defs>
+            <div>
+                <svg width="350px" viewBox="0 0 700 700" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="cell-pattern" patternUnits="userSpaceOnUse" width="100" height="100">
+                            <circle cx="50" cy="50" r="45" fill="black"></circle>
+                        </pattern>
+                        <mask id="cell-mask">
+                            <rect width="100" height="600" fill="white"></rect>
+                            <rect width="100" height="600" fill="url(#cell-pattern)"></rect>
+                        </mask>
+                    </defs>
 
-                {% match connect4_match.status %}
-                {% when types::Status::InProgress with {next_player} %}
+                    {% match connect4_match.status %}
+                    {% when types::Status::InProgress with {next_player} %}
 
-                {% let player = connect4_match.players.get(next_player.clone()).unwrap() %}
-                {% match player %}
-                {% when types::Player::User(user) %}
-                {% if user.username == auth_user.username %}
-                <svg x="0" y="0">
-                    {% for i in 0..7 %}
-                    <g>
-                        <circle cx="{{ i*100 + 50 }}" cy="50" r="45"
-                            hx-post="/app/games/connect4/matches/{{connect4_match.id}}/turns/create_turn"
-                            hx-target="#state" hx-vals='{"player": {{ next_player }}, "column": {{i}}}'>
-                        </circle>
-                    </g>
-                    {% endfor %}
-                </svg>
-                {% else %}
-                {% endif %}
-                {% when types::Player::Agent(agent) %}
-                {% endmatch %}
-
-
-                {% else %}
-                {% endmatch %}
+                    {% let player = connect4_match.players.get(next_player.clone()).unwrap() %}
+                    {% match player %}
+                    {% when types::Player::User(user) %}
+                    {% if user.username == auth_user.username %}
+                    <svg x="0" y="0">
+                        {% for i in 0..7 %}
+                        <g>
+                            <circle cx="{{ i*100 + 50 }}" cy="50" r="45"
+                                hx-post="/app/games/connect4/matches/{{connect4_match.id}}/turns/create_turn"
+                                hx-target="#state" hx-vals='{"player": {{ next_player }}, "column": {{i}}}'>
+                            </circle>
+                        </g>
+                        {% endfor %}
+                    </svg>
+                    {% else %}
+                    {% endif %}
+                    {% when types::Player::Agent(agent) %}
+                    {% endmatch %}
 
 
-                {% for col in 0..7 %}
-                <svg x="{{100 * col}}" y="100">
-                    {% for row in 0..6 %}
-                    {% let cell = connect4_match.state.board[col * 6 + row].clone() %}
-
-                    {% match cell %}
-                    {% when Some with (0) %}
-                    <circle cx="50" cy="{{550-row*100}}" r="45" fill="#254689"></circle>
-                    {% when Some with (1) %}
-                    <circle cx="50" cy="{{550-row*100}}" r="45" fill="#FC7E69"></circle>
-                    {% when None %}
-                    {# empty slot #}
                     {% else %}
                     {% endmatch %}
+
+
+                    {% for col in 0..7 %}
+                    <svg x="{{100 * col}}" y="100">
+                        {% for row in 0..6 %}
+                        {% let cell = connect4_match.state.board[col * 6 + row].clone() %}
+
+                        {% match cell %}
+                        {% when Some with (0) %}
+                        <circle cx="50" cy="{{550-row*100}}" r="45" fill="#254689"></circle>
+                        {% when Some with (1) %}
+                        <circle cx="50" cy="{{550-row*100}}" r="45" fill="#FC7E69"></circle>
+                        {% when None %}
+                        {# empty slot #}
+                        {% else %}
+                        {% endmatch %}
+                        {% endfor %}
+                        <rect width="100" height="600" fill="cadetblue" mask="url(#cell-mask)"></rect>
+                    </svg>
                     {% endfor %}
-                    <rect width="100" height="600" fill="cadetblue" mask="url(#cell-mask)"></rect>
                 </svg>
-                {% endfor %}
-            </svg>
-        </div>
-    </div>
-    <div class="p-4 space-y-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-        <div class="px-4 py-2 text-gray-400">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Turns</h2>
-        </div>
-        <div class="px-4 py-2 text-gray-400">
-            <div class="border-t border-gray-200 dark:border-gray-600">
-                <div class="pt-4" id="faq" role="tabpanel" aria-labelledby="faq-tab">
-                  <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-                    {% for turn in connect4_match.turns %}
-                        {% if !loop.first %}
-                            <li class="py-3 sm:py-4">
-                                <div class="flex items-center justify-between">
-                                    <div class="inline-flex items-center text-base font-semibold text-gray-900 dark:text-white">
-                                        {{turn.number}}
-                                    </div>
-                                    <div class="flex items-center min-w-0">
-                                        <div class="ml-3">
-                                            <p class="font-medium text-gray-900 truncate dark:text-white">
-                                                {% match turn.player %}
-                                                {% when Some with (0) %}
-                                                Blue
-                                                {% when Some with (1) %}
-                                                Red
-                                                {% else %}
-                                                {% endmatch %}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div class="inline-flex items-center text-base font-semibold text-gray-900 dark:text-white">
-                                        {% match turn.action %}
-                                        {% when Some with (action) %}
-                                        {{action.column}}
-                                        {% else %}
-                                        {% endmatch %}
-                                    </div>
-                                </div>
-                            </li>
-                        {% endif %}
-                    {% endfor %}
-                  </ul>
-                </div>
             </div>
-        </div>
+        </section>
+
+        <section class="box flex-grow:1">
+            <h2>Turns</h2>
+            {% for turn in connect4_match.turns %}
+            {% if !loop.first %}
+            <ul>
+                <li>
+                    <span>Turn {{turn.number}}</span>
+                    <span>{% match turn.player %}
+                        {% when Some with (0) %}
+                        Blue
+                        {% when Some with (1) %}
+                        Red
+                        {% else %}
+                        {% endmatch %}
+
+                        {% match turn.action %}
+                        {% when Some with (action) %}
+                        {{action.column}}
+                        {% else %}
+                        {% endmatch %}
+                    </span>
+                </li>
+            </ul>
+            {% endif %}
+            {% endfor %}
+        </section>
     </div>
     {% endblock state %}
 </div>
-
 {% endblock main %}

@@ -10,11 +10,13 @@ askama = { version = "0.12.0", features = ["with-axum"]}
 askama_axum = "0.3.0"
 async-trait = "0.1.68"
 axum = { git = "https://github.com/tokio-rs/axum.git" }
+base64 = "0.21.2"
 cookie = "0.17.0"
 jwt-simple = "0.11.5"
 lazy_static = "1.4.0"
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.22.0"
+reqwest = {version ="0.11.18", default-features = false, features = ["rustls-tls", "json"]}
 rusqlite = { version = "0.29.0", features = ["bundled"]}
 rusqlite_migration = "1.0.2"
 sentry = { version = "0.31.3", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls", "tracing"] }

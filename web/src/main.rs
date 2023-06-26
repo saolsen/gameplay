@@ -72,6 +72,8 @@ async fn main() {
         .route("/health", get(web::health))
         .route("/refresh", get(web::refresh))
         .route("/", get(web::root))
+        .route("/test", post(web::test))
+        .route("/callback", post(web::callback))
         // dashboard pages
         .route("/app", get(web::app))
         .route("/app/me", get(web::app_me))
@@ -97,6 +99,14 @@ async fn main() {
             "/app/games/connect4/matches/:match_id/turns/create_turn",
             post(web::connect4_match_create_turn),
         )
+        // .route(
+        //     "/qstash/callbacks/validate_agent",
+        //     post(web::validate_agent_callback),
+        // )
+        // .route(
+        //     "/qstash/callbacks/agent_turn",
+        //     post(web::agent_turn_callback),
+        // )
         .with_state(state)
         .layer(
             tower_http::trace::TraceLayer::new_for_http()
