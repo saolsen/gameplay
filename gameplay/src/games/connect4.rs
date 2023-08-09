@@ -50,6 +50,7 @@ impl Connect4 {
         self.get(action.column, ROWS - 1).is_none()
     }
 
+    #[allow(clippy::identity_op)]
     fn _status(&self) -> MatchStatus {
         // Check vertical wins
         for col in 0..COLS {

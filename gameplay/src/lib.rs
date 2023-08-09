@@ -18,8 +18,8 @@ pub enum MatchStatus {
 
 pub trait Match: Default {
     type Error: Error;
-    type Action: Serialize + Deserialize;
-    type State: Serialize + Deserialize;
+    type Action: Serialize + for<'a> Deserialize<'a>;
+    type State: Serialize + for<'a> Deserialize<'a>;
 
     fn valid_action(&self, action: &Self::Action) -> bool;
     fn status(&self) -> MatchStatus;
