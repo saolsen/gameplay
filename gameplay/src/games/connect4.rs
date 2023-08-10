@@ -164,3 +164,14 @@ impl GameState for Connect4 {
         Err(Error::FullColumn(action.column))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn check_serialized() {
+        let game = super::Connect4::default();
+        eprintln!("{}", serde_json::to_string(&game).unwrap());
+        let action = super::Action { column: 3 };
+        eprintln!("{}", serde_json::to_string(&action).unwrap());
+    }
+}

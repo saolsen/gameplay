@@ -26,6 +26,33 @@ pub fn read_char() -> io::Result<char> {
     }
 }
 
+pub fn show_error(err: reqwest::Error) -> io::Result<()> {
+    let mut stdout = io::stdout();
+    queue!(
+        stdout,
+        style::ResetColor,
+        terminal::Clear(ClearType::All),
+        cursor::Hide,
+        cursor::MoveTo(0, 0),
+        style::Print("Connect 4")
+    )?;
+
+    queue!(stdout, cursor::MoveToNextLine(1))?;
+
+    queue!(
+        stdout,
+        style::SetForegroundColor(style::Color::Red),
+        style::Print("Error: "),
+        style::Print(err.to_string()),
+        style::ResetColor,
+        cursor::MoveToNextLine(1),
+        style::Print("hit 'q' to quit"),
+        cursor::MoveToNextLine(1),
+    )?;
+
+    stdout.flush()
+}
+
 const BORDER: &str = "+---+---+---+---+---+---+---+";
 
 pub fn show_connect4(connect4_state: &Connect4, your_turn: bool) -> io::Result<()> {
@@ -170,8 +197,9 @@ pub fn show_connect4(connect4_state: &Connect4, your_turn: bool) -> io::Result<(
 const MENU: &str = r#"Choose an opponent.
 
 1. Human. (Yourself or the person next to you).
+2. Local Agent. (Agent running on port 8000).
 
-Select opponent ('1') or hit 'q' to quit.
+Select opponent ('1', '2') or hit 'q' to quit.
 "#;
 
 pub fn main_menu() -> io::Result<()> {
