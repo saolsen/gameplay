@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{Match, MatchResult, MatchStatus};
+use crate::games::{GameStatus, GameResult, GameState};
 
 pub const ROWS: usize = 6;
 pub const COLS: usize = 7;
@@ -21,16 +21,14 @@ pub enum Error {
     FullColumn(usize),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct Action {
     pub column: usize,
 }
 
-type State = Vec<Option<usize>>;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Connect4 {
-    board: State,
+    board: Vec<Option<usize>>,
     next_player: usize,
 }
 
@@ -42,8 +40,22 @@ impl Connect4 {
     fn set(&mut self, col: usize, row: usize, val: Option<usize>) {
         self.board[col * ROWS + row] = val;
     }
+}
 
-    fn _valid_action(&self, action: &Action) -> bool {
+impl Default for Connect4 {
+    fn default() -> Self {
+        Self {
+            board: vec![None; ROWS * COLS],
+            next_player: 0,
+        }
+    }
+}
+
+impl GameState for Connect4 {
+    type Error = Error;
+    type Action = Action;
+
+    fn valid_action(&self, action: &Self::Action) -> bool {
         if action.column >= COLS {
             return false;
         }
@@ -51,7 +63,7 @@ impl Connect4 {
     }
 
     #[allow(clippy::identity_op)]
-    fn _status(&self) -> MatchStatus {
+    fn status(&self) -> GameStatus {
         // Check vertical wins
         for col in 0..COLS {
             for row in 0..3 {
@@ -61,9 +73,9 @@ impl Connect4 {
                     self.get(col, row + 2),
                     self.get(col, row + 3),
                 ) {
-                    return MatchStatus::Over(MatchResult::Winner {
+                    return GameStatus::Over{ result: GameResult::Winner {
                         winning_player: player,
-                    });
+                    }};
                 }
             }
         }
@@ -77,9 +89,9 @@ impl Connect4 {
                     self.get(col + 2, row),
                     self.get(col + 3, row),
                 ) {
-                    return MatchStatus::Over(MatchResult::Winner {
+                    return GameStatus::Over{ result: GameResult::Winner {
                         winning_player: player,
-                    });
+                    }};
                 }
             }
         }
@@ -93,9 +105,9 @@ impl Connect4 {
                     self.get(col + 2, row + 2),
                     self.get(col + 3, row + 3),
                 ) {
-                    return MatchStatus::Over(MatchResult::Winner {
+                    return GameStatus::Over{ result: GameResult::Winner {
                         winning_player: player,
-                    });
+                    }};
                 }
             }
         }
@@ -109,9 +121,9 @@ impl Connect4 {
                     self.get(col + 2, row - 2),
                     self.get(col + 3, row - 3),
                 ) {
-                    return MatchStatus::Over(MatchResult::Winner {
+                    return GameStatus::Over{ result: GameResult::Winner {
                         winning_player: player,
-                    });
+                    }};
                 }
             }
         }
@@ -119,16 +131,16 @@ impl Connect4 {
         // Check for tie
         for col in 0..COLS {
             if self.get(col, ROWS - 1).is_none() {
-                return MatchStatus::InProgress {
+                return GameStatus::InProgress {
                     next_player: self.next_player,
                 };
             }
         }
 
-        MatchStatus::Over(MatchResult::Tie)
+        GameStatus::Over{ result: GameResult::Tie }
     }
 
-    fn _apply_action(&mut self, action: &Action) -> Result<MatchStatus, Error> {
+    fn apply_action(&mut self, action: &Self::Action) -> Result<GameStatus, Self::Error> {
         if action.column >= COLS {
             return Err(Error::UnknownColumn(action.column));
         }
@@ -136,37 +148,9 @@ impl Connect4 {
             if self.get(action.column, row).is_none() {
                 self.set(action.column, row, Some(self.next_player));
                 self.next_player = (self.next_player + 1) % 2;
-                return Ok(self._status());
+                return Ok(self.status());
             }
         }
         Err(Error::FullColumn(action.column))
-    }
-}
-
-impl Default for Connect4 {
-    fn default() -> Self {
-        Self {
-            board: vec![None; ROWS * COLS],
-            next_player: 0,
-        }
-    }
-}
-
-impl Match for Connect4 {
-    type Error = Error;
-    type Action = Action;
-    type State = State;
-
-    fn valid_action(&self, action: &Self::Action) -> bool {
-        self._valid_action(action)
-    }
-    fn status(&self) -> MatchStatus {
-        self._status()
-    }
-    fn apply_action(&mut self, action: &Self::Action) -> Result<MatchStatus, Self::Error> {
-        self._apply_action(action)
-    }
-    fn state(&self) -> &Self::State {
-        &self.board
     }
 }
