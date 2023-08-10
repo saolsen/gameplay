@@ -1,0 +1,12 @@
+[package]
+name = "saolsen_connect4_rand"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+axum = "0.6.20"
+rand = "0.8.5"
+serde_json = "1.0.104"
+tokio = {version="1.30.0", features = ["full"]}

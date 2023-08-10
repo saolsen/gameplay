@@ -26,7 +26,7 @@ pub fn read_char() -> io::Result<char> {
     }
 }
 
-pub fn show_error(err: reqwest::Error) -> io::Result<()> {
+pub fn show_error(err: &str) -> io::Result<()> {
     let mut stdout = io::stdout();
     queue!(
         stdout,
@@ -42,7 +42,8 @@ pub fn show_error(err: reqwest::Error) -> io::Result<()> {
     queue!(
         stdout,
         style::SetForegroundColor(style::Color::Red),
-        style::Print("Error: "),
+        style::Print("Error getting next action from agent"),
+        cursor::MoveToNextLine(1),
         style::Print(err.to_string()),
         style::ResetColor,
         cursor::MoveToNextLine(1),

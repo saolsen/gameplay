@@ -53,11 +53,27 @@ async fn play(blue: Agent, red: Agent) -> io::Result<()> {
                     .await;
                 match resp {
                     Ok(resp) => {
-                        let action = resp.json::<Action>().await.unwrap();
-                        action
+                        let action = resp.json::<Action>().await;
+                        match action {
+                            Ok(action) => {
+                                // See if the action is valid.
+                                if state.valid_action(&action) {
+                                    action
+                                } else {
+                                    tui::show_error(&format!("Action is invalid: {:?}", action))?;
+                                    while tui::read_char()? != 'q' {}
+                                    return Ok(());
+                                }
+                            },
+                            Err(err) => {
+                                tui::show_error(&err.to_string())?;
+                                while tui::read_char()? != 'q' {}
+                                return Ok(());
+                            }
+                        }
                     }
                     Err(err) => {
-                        tui::show_error(err)?;
+                        tui::show_error(&err.to_string())?;
                         while tui::read_char()? != 'q' {}
                         return Ok(());
                     }
