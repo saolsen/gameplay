@@ -13,7 +13,7 @@ pub enum GameResult {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameStatus {
     InProgress { next_player: usize }, // Index of the player who's turn it is
-    Over {result: GameResult},
+    Over { result: GameResult },
 }
 
 pub trait GameState: Default + Clone + Serialize + for<'a> Deserialize<'a> {

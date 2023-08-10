@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::games::{GameStatus, GameResult, GameState};
+use crate::games::{GameResult, GameState, GameStatus};
 
 pub const ROWS: usize = 6;
 pub const COLS: usize = 7;
@@ -33,7 +33,7 @@ pub struct Connect4 {
 }
 
 impl Connect4 {
-    fn get(&self, col: usize, row: usize) -> Option<usize> {
+    pub fn get(&self, col: usize, row: usize) -> Option<usize> {
         self.board[col * ROWS + row]
     }
 
@@ -73,9 +73,11 @@ impl GameState for Connect4 {
                     self.get(col, row + 2),
                     self.get(col, row + 3),
                 ) {
-                    return GameStatus::Over{ result: GameResult::Winner {
-                        winning_player: player,
-                    }};
+                    return GameStatus::Over {
+                        result: GameResult::Winner {
+                            winning_player: player,
+                        },
+                    };
                 }
             }
         }
@@ -89,9 +91,11 @@ impl GameState for Connect4 {
                     self.get(col + 2, row),
                     self.get(col + 3, row),
                 ) {
-                    return GameStatus::Over{ result: GameResult::Winner {
-                        winning_player: player,
-                    }};
+                    return GameStatus::Over {
+                        result: GameResult::Winner {
+                            winning_player: player,
+                        },
+                    };
                 }
             }
         }
@@ -105,9 +109,11 @@ impl GameState for Connect4 {
                     self.get(col + 2, row + 2),
                     self.get(col + 3, row + 3),
                 ) {
-                    return GameStatus::Over{ result: GameResult::Winner {
-                        winning_player: player,
-                    }};
+                    return GameStatus::Over {
+                        result: GameResult::Winner {
+                            winning_player: player,
+                        },
+                    };
                 }
             }
         }
@@ -121,9 +127,11 @@ impl GameState for Connect4 {
                     self.get(col + 2, row - 2),
                     self.get(col + 3, row - 3),
                 ) {
-                    return GameStatus::Over{ result: GameResult::Winner {
-                        winning_player: player,
-                    }};
+                    return GameStatus::Over {
+                        result: GameResult::Winner {
+                            winning_player: player,
+                        },
+                    };
                 }
             }
         }
@@ -137,7 +145,9 @@ impl GameState for Connect4 {
             }
         }
 
-        GameStatus::Over{ result: GameResult::Tie }
+        GameStatus::Over {
+            result: GameResult::Tie,
+        }
     }
 
     fn apply_action(&mut self, action: &Self::Action) -> Result<GameStatus, Self::Error> {

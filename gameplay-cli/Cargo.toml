@@ -1,0 +1,13 @@
+[package]
+name = "gameplay-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "gameplay"
+path = "src/main.rs"
+
+[dependencies]
+gameplay = { path = "../gameplay" }
+crossterm = "0.26.1"
+anyhow = "1.0.72"
