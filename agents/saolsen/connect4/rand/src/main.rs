@@ -1,3 +1,4 @@
+use std::env;
 use axum::{
     routing::post,
     Router,
@@ -38,7 +39,11 @@ async fn agent(Json(game_state): Json<Value>) -> Json<Value> {
 async fn main() {
     let app = Router::new().route("/", post(agent));
 
-    axum::Server::bind(&"0.0.0.0:8000".parse().unwrap())
+    let port = env::var("PORT").unwrap_or("8000".to_string());
+
+    println!("Listening on {}", port);
+
+    axum::Server::bind(&format!("0.0.0.0:{}", port).parse().unwrap())
         .serve(app.into_make_service())
         .await
         .unwrap();

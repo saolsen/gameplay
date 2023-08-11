@@ -1,0 +1,9 @@
+services:
+  saolsen_connect4_rand:
+    build: agents/saolsen/connect4/rand
+    environment:
+        - PORT=80
+  gameplay:
+    build: .
+    depends_on:
+      - saolsen_connect4_rand
