@@ -1,9 +1,13 @@
 services:
   saolsen_connect4_rand:
-    build: agents/saolsen/connect4/rand
+    build:
+      context: .
+      dockerfile: docker/saolsen_connect4_rand.Dockerfile
     environment:
         - PORT=80
   gameplay:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/gameplay.Dockerfile
     depends_on:
       - saolsen_connect4_rand
