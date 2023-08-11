@@ -1,8 +1,25 @@
 pub mod connect4;
 
 use std::error::Error;
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Game {
+    Connect4,
+}
+
+impl FromStr for Game {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "connect4" => Ok(Game::Connect4),
+            _ => Err(format!("Unknown game: {}", s)),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameResult {

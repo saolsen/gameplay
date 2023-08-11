@@ -1,30 +1,40 @@
 use std::io;
-use reqwest::{Error, Response};
+
+use clap::{Parser, Subcommand};
+use reqwest::{Error, Response, Url};
 
 use gameplay::games::connect4::{Action, Connect4};
-use gameplay::games::{GameState, GameStatus};
+use gameplay::games::{Game, GameState, GameStatus};
 
 mod tui;
 
-enum Agent {
+enum Player {
     Human,
-    Local,
+    Agent(Url),
 }
 
-async fn play(blue: Agent, red: Agent) -> io::Result<()> {
+async fn cli_connect4_match(player1: Player, player2: Player) -> io::Result<()> {
+    // Wrap the match in setup/cleanup so we make sure to cleanup on any error.
+    tui::setup()?;
+    let result = _cli_connect4_match(player1, player2).await;
+    tui::cleanup()?;
+    result
+}
+
+async fn _cli_connect4_match(player1: Player, player2: Player) -> io::Result<()> {
     let client = reqwest::Client::new();
 
     let mut state = Connect4::default();
     let mut status = state.status();
     while let GameStatus::InProgress { next_player } = status {
-        let agent = match next_player {
-            0 => &blue,
-            1 => &red,
+        let player = match next_player {
+            0 => &player1,
+            1 => &player2,
             _ => unreachable!(),
         };
 
-        let action = match agent {
-            Agent::Human => {
+        let action = match player {
+            Player::Human => {
                 tui::show_connect4(&state, true)?;
                 'turn: loop {
                     let c = tui::read_char()?;
@@ -44,10 +54,11 @@ async fn play(blue: Agent, red: Agent) -> io::Result<()> {
                     }
                 }
             }
-            Agent::Local => {
+            Player::Agent(url) => {
                 tui::show_connect4(&state, false)?;
                 // Query the agent for an action
-                let resp = client.post("http://localhost:8000/")
+                let resp = client
+                    .post(url.clone())
                     .json(&state)
                     .send()
                     .await;
@@ -64,7 +75,7 @@ async fn play(blue: Agent, red: Agent) -> io::Result<()> {
                                     while tui::read_char()? != 'q' {}
                                     return Ok(());
                                 }
-                            },
+                            }
                             Err(err) => {
                                 tui::show_error(&err.to_string())?;
                                 while tui::read_char()? != 'q' {}
@@ -87,19 +98,52 @@ async fn play(blue: Agent, red: Agent) -> io::Result<()> {
     Ok(())
 }
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    game: Game,
+
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Play a match
+    Play {
+        #[arg(long)]
+        player1_url: Option<Url>,
+        #[arg(long)]
+        player2_url: Option<Url>,
+    },
+    // Test an agent
+    // Test { url: Url },
+}
+
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    tui::setup()?;
-    loop {
-        tui::main_menu()?;
-        match tui::read_char()? {
-            '1' => play(Agent::Human, Agent::Human).await?,
-            '2' => play(Agent::Human, Agent::Local).await?,
-            'q' => {
-                break;
-            }
-            _ => (),
+    let args = Cli::parse();
+
+    // Only one game so far, everything assumes connect4.
+    assert_eq!(args.game, Game::Connect4);
+
+    match args.command {
+        Commands::Play {
+            player1_url,
+            player2_url,
+        } => {
+            let player1 = match player1_url {
+                Some(url) => Player::Agent(url),
+                None => Player::Human,
+            };
+            let player2 = match player2_url {
+                Some(url) => Player::Agent(url),
+                None => Player::Human,
+            };
+            cli_connect4_match(player1, player2).await?;
         }
+        // Commands::Test { url } => {}
     }
-    tui::cleanup()
+
+    Ok(())
 }
