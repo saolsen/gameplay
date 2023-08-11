@@ -57,11 +57,7 @@ async fn _cli_connect4_match(player1: Player, player2: Player) -> io::Result<()>
             Player::Agent(url) => {
                 tui::show_connect4(&state, false)?;
                 // Query the agent for an action
-                let resp = client
-                    .post(url.clone())
-                    .json(&state)
-                    .send()
-                    .await;
+                let resp = client.post(url.clone()).json(&state).send().await;
                 match resp {
                     Ok(resp) => {
                         let action = resp.json::<Action>().await;
@@ -141,8 +137,7 @@ async fn main() -> io::Result<()> {
                 None => Player::Human,
             };
             cli_connect4_match(player1, player2).await?;
-        }
-        // Commands::Test { url } => {}
+        } // Commands::Test { url } => {}
     }
 
     Ok(())
