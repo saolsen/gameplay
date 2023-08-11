@@ -1,0 +1,13 @@
+[package]
+name = "saolsen_connect4_mcts"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+gameplay = {path = "../../../../gameplay"}
+axum = "0.6.20"
+rand = "0.8.5"
+serde_json = "1.0.104"
+tokio = {version="1.30.0", features = ["full"]}
