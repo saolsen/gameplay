@@ -195,34 +195,6 @@ pub fn show_connect4(connect4_state: &Connect4, your_turn: bool) -> io::Result<(
     stdout.flush()
 }
 
-const MENU: &str = r#"Choose an opponent.
-
-1. Human. (Yourself or the person next to you).
-2. Local Agent. (Agent running on port 8000).
-
-Select opponent ('1', '2') or hit 'q' to quit.
-"#;
-
-pub fn main_menu() -> io::Result<()> {
-    let mut stdout = io::stdout();
-    queue!(
-        stdout,
-        style::ResetColor,
-        terminal::Clear(ClearType::All),
-        cursor::Hide,
-        cursor::MoveTo(0, 0),
-        style::Print("Connect 4")
-    )?;
-
-    queue!(stdout, cursor::MoveToNextLine(1))?;
-
-    for line in MENU.split('\n') {
-        queue!(stdout, style::Print(line), cursor::MoveToNextLine(1))?;
-    }
-
-    stdout.flush()
-}
-
 pub fn setup() -> io::Result<()> {
     let mut stdout = io::stdout();
     execute!(stdout, terminal::EnterAlternateScreen)?;

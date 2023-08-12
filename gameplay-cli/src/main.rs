@@ -1,7 +1,7 @@
 use std::io;
 
 use clap::{Parser, Subcommand};
-use reqwest::{Error, Response, Url};
+use reqwest::Url;
 
 use gameplay::games::connect4::{Action, Connect4};
 use gameplay::games::{Game, GameState, GameStatus};
