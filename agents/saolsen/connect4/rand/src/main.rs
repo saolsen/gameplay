@@ -2,11 +2,22 @@ use axum::{response::Json, routing::post, Router};
 use rand::Rng;
 use serde_json::{json, Value};
 use std::env;
+use axum::http::HeaderMap;
 
 // This is an example of a "from scratch" agent.
 // You can write an agent in any language as long
 // as it can host an http server and talk json.
-async fn agent(Json(game_state): Json<Value>) -> Json<Value> {
+async fn agent(headers: HeaderMap, Json(game_state): Json<Value>) -> Json<Value> {
+    let game = headers.get("Gameplay-Game").unwrap().to_str().unwrap();
+    let match_id = headers.get("Gameplay-Match-ID").unwrap().to_str().unwrap();
+    let player = headers.get("Gameplay-Player").unwrap().to_str().unwrap();
+    let match_status = headers.get("Gameplay-Match-Status").unwrap().to_str().unwrap();
+
+    println!("game: {}", game);
+    println!("match_id: {}", match_id);
+    println!("player: {}", player);
+    println!("match_status: {}", match_status);
+
     let board_json = game_state.get("board").unwrap().as_array().unwrap();
     let board: Vec<Option<u64>> = board_json
         .iter()

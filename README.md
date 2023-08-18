@@ -23,15 +23,15 @@ Docker (see [docker](https://www.docker.com)) and clone the repo.
 
 ### Play against a local agent (best for developing an agent)
 
-`target/release/gameplay connect4 play --player2-url http://localhost:8000`
+`target/release/gameplay connect4 play --player1-url http://localhost:8000`
 
 You can also have your local agent play itself.
 
-`target/release/gameplay connect4 play --player1-url http://localhost:8000 --player2-url http://localhost:8000`
+`target/release/gameplay connect4 play --player0-url http://localhost:8000 --player1-url http://localhost:8000`
 
 ### Play against other agents
 
-Agents can be written in any language so they all have their own dependencies.
+Agents can be written in any language, so they all have their own dependencies.
 To avoid everyone having to install every agent's dependencies each agent has
 a dockerfile that runs it. (See [how agents work](#how-agents-work))
 
@@ -42,11 +42,11 @@ Build all the agents.
 Then you can play against them! For example here is how you could play against
 my [mcts agent](https://www.steveindusteves.com/p/connect4-mcts)
 
-`docker compose run gameplay gameplay connect4 --player2-url http://saolsen_connect4_mcts`
+`docker compose run gameplay gameplay connect4 --player1-url http://saolsen_connect4_mcts`
 
 Or to have two agents play eachother. In this case my rand agent vs my mcts agent.
 
-`docker compose run gameplay gameplay connect4 --player1-url http://saolsen_connect4_rand --player2-url http://saolsen_connect4_mcts`
+`docker compose run gameplay gameplay connect4 --player0-url http://saolsen_connect4_rand --player1-url http://saolsen_connect4_mcts`
 
 ## How agents work
 
@@ -108,8 +108,7 @@ row 0 is the bottom row, row 5 is the top row, column 0 is the leftmost column
 and column 6 is the rightmost column. Then you would index the array as
 `board[col * 6 + row]`
 
-The `next_player` is the index of the player whose turn it is. Which means that is
-your agent.
+The `next_player` is the index of the player whose turn it is.
 
 Then you must reply with a json action that looks like this. It is the column
 that you wish to drop your chip into (0-6).
@@ -119,9 +118,9 @@ that you wish to drop your chip into (0-6).
 ```
 
 You can run your service locally and test it by passing its url as either
-`--player1-url` or `--player2-url` (or both). For example.
+`--player0-url` or `--player1-url` (or both). For example.
 
-`target/release/gameplay connect4 play --player2-url http://localhost:8000`
+`target/release/gameplay connect4 play --player1-url http://localhost:8000`
 
 ## Packaging an agent
 

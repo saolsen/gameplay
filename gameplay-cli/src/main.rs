@@ -2,6 +2,7 @@ use std::io;
 
 use clap::{Parser, Subcommand};
 use reqwest::Url;
+use uuid::Uuid;
 
 use gameplay::games::connect4::{Action, Connect4};
 use gameplay::games::{Game, GameState, GameStatus};
@@ -13,23 +14,24 @@ enum Player {
     Agent(Url),
 }
 
-async fn cli_connect4_match(player1: Player, player2: Player) -> io::Result<()> {
+async fn cli_connect4_match(player0: Player, player1: Player) -> io::Result<()> {
     // Wrap the match in setup/cleanup so we make sure to cleanup on any error.
     tui::setup()?;
-    let result = _cli_connect4_match(player1, player2).await;
+    let result = _cli_connect4_match(player0, player1).await;
     tui::cleanup()?;
     result
 }
 
-async fn _cli_connect4_match(player1: Player, player2: Player) -> io::Result<()> {
+async fn _cli_connect4_match(player0: Player, player1: Player) -> io::Result<()> {
     let client = reqwest::Client::new();
 
+    let match_id = Uuid::now_v7();
     let mut state = Connect4::default();
     let mut status = state.status();
     while let GameStatus::InProgress { next_player } = status {
         let player = match next_player {
-            0 => &player1,
-            1 => &player2,
+            0 => &player0,
+            1 => &player1,
             _ => unreachable!(),
         };
 
@@ -57,7 +59,12 @@ async fn _cli_connect4_match(player1: Player, player2: Player) -> io::Result<()>
             Player::Agent(url) => {
                 tui::show_connect4(&state, false)?;
                 // Query the agent for an action
-                let resp = client.post(url.clone()).json(&state).send().await;
+                let resp = client.post(url.clone())
+                    .header("Gameplay-Game", "connect4")
+                    .header("Gameplay-Match-ID", match_id.to_string())
+                    .header("Gameplay-Player", next_player.to_string())
+                    .header("Gameplay-Match-Status", "InProgress")
+                    .json(&state).send().await;
                 match resp {
                     Ok(resp) => {
                         let action = resp.json::<Action>().await;
@@ -89,6 +96,26 @@ async fn _cli_connect4_match(player1: Player, player2: Player) -> io::Result<()>
         };
         status = state.apply_action(&action).unwrap();
     }
+    // Tell the agents the match is over.
+    if let Player::Agent(url) = player0 {
+        let _ = client.post(url)
+            .header("Gameplay-Game", "connect4")
+            .header("Gameplay-Match-ID", match_id.to_string())
+            .header("Gameplay-Player", "0")
+            .header("Gameplay-Match-Status", "Over")
+            .json(&state)
+            .send().await;
+    }
+    if let Player::Agent(url) = player1 {
+        let _ = client.post(url)
+            .header("Gameplay-Game", "connect4")
+            .header("Gameplay-Match-ID", match_id.to_string())
+            .header("Gameplay-Player", "1")
+            .header("Gameplay-Match-Status", "Over")
+            .json(&state)
+            .send().await;
+    }
+
     tui::show_connect4(&state, false)?;
     while tui::read_char()? != 'q' {}
     Ok(())
@@ -108,9 +135,9 @@ enum Commands {
     /// Play a match
     Play {
         #[arg(long)]
-        player1_url: Option<Url>,
+        player0_url: Option<Url>,
         #[arg(long)]
-        player2_url: Option<Url>,
+        player1_url: Option<Url>,
     },
     // Test an agent
     // Test { url: Url },
@@ -125,18 +152,18 @@ async fn main() -> io::Result<()> {
 
     match args.command {
         Commands::Play {
+            player0_url,
             player1_url,
-            player2_url,
         } => {
+            let player0 = match player0_url {
+                Some(url) => Player::Agent(url),
+                None => Player::Human,
+            };
             let player1 = match player1_url {
                 Some(url) => Player::Agent(url),
                 None => Player::Human,
             };
-            let player2 = match player2_url {
-                Some(url) => Player::Agent(url),
-                None => Player::Human,
-            };
-            cli_connect4_match(player1, player2).await?;
+            cli_connect4_match(player0, player1).await?;
         } // Commands::Test { url } => {}
     }
 

@@ -25,6 +25,7 @@ impl FromStr for Game {
 pub enum GameResult {
     Winner { winning_player: usize }, // Index of the winning player
     Tie,
+    Error,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

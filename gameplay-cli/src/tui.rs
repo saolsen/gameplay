@@ -127,6 +127,13 @@ pub fn show_connect4(connect4_state: &Connect4, your_turn: bool) -> io::Result<(
                     cursor::MoveToNextLine(1)
                 )?;
             }
+            GameResult::Error => {
+                queue!(
+                    stdout,
+                    style::Print("There was an error"),
+                    cursor::MoveToNextLine(1)
+                )?;
+            }
         },
     }
 

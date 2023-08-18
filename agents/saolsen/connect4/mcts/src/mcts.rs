@@ -58,6 +58,7 @@ fn score_action(current_state: &Connect4, player: usize, action: &Action) -> f64
                             }
                         }
                         GameResult::Tie => {}
+                        GameResult::Error => {}
                     }
                     break;
                 }

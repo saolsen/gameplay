@@ -1,0 +1,3 @@
+[build]
+# uuid v7 feature is behind this cfg flag in the uuid crate
+rustflags = ["--cfg", "uuid_unstable"]
