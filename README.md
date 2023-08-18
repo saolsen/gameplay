@@ -117,6 +117,17 @@ that you wish to drop your chip into (0-6).
 {"column": 3}
 ```
 
+There are also a number of headers that are passed with the request.
+
+* `Gameplay-Game` says which game is being played. Right now it will always be `connect4`.
+* `Gameplay-Match-ID` is a unique id for this match. Since an agent service could be
+playing multiple games at once this lets you keep track of which game is which so if you
+have any internal state you can keep it separate.
+* `Gameplay-Player` is the index of the player that you are playing as. `0` or `1`.
+* `Gameplay-Match-Status` is the status of the match. It will be `InProgress`
+is still going or `Over` if it is over. This final `Over` request with the final state of
+the game lets the agent know the match is over, so it can clean up any state it has.
+
 You can run your service locally and test it by passing its url as either
 `--player0-url` or `--player1-url` (or both). For example.
 
@@ -146,14 +157,6 @@ I'd like to make some libraries for common languages that handle the http and
 json parts of an agent, so you can easily write one as just a single function.
 This will be a far easier way to make agents for supported languages, we'll
 handle all the docker parts too. Should make it way easier for people.
-
-### Some additional context as headers.
-
-Agents are just a stateless http service, and they could be called out of game
-order for multiple matches at once. To make it possible to store state on the
-agent side I want to give each match a unique id and pass that as a header.
-I'd also like to pass which turn it is as a header, then agents have something
-they can tie state to.
 
 ### HTTP level test suite for agents.
 
