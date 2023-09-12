@@ -23,7 +23,6 @@ export async function currentUser(cookies: AstroCookies): Promise<ClerkUser | nu
         try {
             const decoded = await jwtVerify(token, key);
             const user = ClerkUser.parse(decoded.payload);
-            console.log(user);
             return user;
         } catch (e) {
             if (e instanceof errors.JWTExpired) {
