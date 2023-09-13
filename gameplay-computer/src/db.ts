@@ -6,5 +6,5 @@ const connection = connect({
     username: import.meta.env.DATABASE_USERNAME,
     password: import.meta.env.DATABASE_PASSWORD,
 });
- 
+
 export const db = drizzle(connection);

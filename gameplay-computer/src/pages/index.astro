@@ -7,157 +7,154 @@ import { db } from "../db";
 import { sql } from "drizzle-orm";
 
 const user = await currentUser(Astro.cookies);
-/* if (!user) {
-	return Astro.redirect(`/refresh?next=${Astro.request.url}`);
-} */
 
 console.log(await db.execute(sql`select 1 as hello`));
 ---
 
 <Layout title="Welcome to Astro.">
-	<main>
-		{user || "not logged in"}
-		<a
-			id="signup"
-			href="#"
-			role="button"
-			onclick="
+    <main>
+        {user || "not logged in"}
+        <a
+            id="signup"
+            href="#"
+            role="button"
+            onclick="
 			window.Clerk.openSignUp({
 
 			})
 			">Sign Up</a
-		>
-		<a
-			id="signin"
-			href="#"
-			role="button"
-			onclick="window.Clerk.openSignIn()">Sign In</a
-		>
-		<a id="applink" href="/app" role="button" hidden>Dashboard</a>
-		<div id="clerk-user"></div>
-		<h1>Welcome to <span class="text-gradient">Astro</span></h1>
-		<p class="instructions">
-			To get started, open the directory <code>src/pages</code> in your
-			project.<br />
-			<strong>Code Challenge:</strong> Tweak the "Welcome to Astro"
-			message above.
-		</p>
-		<ul role="list" class="link-card-grid">
-			<Card
-				href="https://docs.astro.build/"
-				title="Documentation"
-				body="Learn how Astro works and explore the official API docs."
-			/>
-			<Card
-				href="https://astro.build/integrations/"
-				title="Integrations"
-				body="Supercharge your project with new frameworks and libraries."
-			/>
-			<Card
-				href="https://astro.build/themes/"
-				title="Themes"
-				body="Explore a galaxy of community-built starter themes."
-			/>
-			<Card
-				href="https://astro.build/chat/"
-				title="Community"
-				body="Come say hi to our amazing Discord community. ❤️"
-			/>
-		</ul>
-	</main>
+        >
+        <a
+            id="signin"
+            href="#"
+            role="button"
+            onclick="window.Clerk.openSignIn()">Sign In</a
+        >
+        <a id="applink" href="/app" role="button" hidden>Dashboard</a>
+        <div id="clerk-user"></div>
+        <h1>Welcome to <span class="text-gradient">Astro</span></h1>
+        <p class="instructions">
+            To get started, open the directory <code>src/pages</code> in your
+            project.<br />
+            <strong>Code Challenge:</strong> Tweak the "Welcome to Astro"
+            message above.
+        </p>
+        <ul role="list" class="link-card-grid">
+            <Card
+                href="https://docs.astro.build/"
+                title="Documentation"
+                body="Learn how Astro works and explore the official API docs."
+            />
+            <Card
+                href="https://astro.build/integrations/"
+                title="Integrations"
+                body="Supercharge your project with new frameworks and libraries."
+            />
+            <Card
+                href="https://astro.build/themes/"
+                title="Themes"
+                body="Explore a galaxy of community-built starter themes."
+            />
+            <Card
+                href="https://astro.build/chat/"
+                title="Community"
+                body="Come say hi to our amazing Discord community. ❤️"
+            />
+        </ul>
+    </main>
 </Layout>
 
 <script>
-	import type Clerk from "@clerk/clerk-js";
-	declare global {
-		interface Window {
-			Clerk?: Clerk;
-		}
-	}
+    import type Clerk from "@clerk/clerk-js";
+    declare global {
+        interface Window {
+            Clerk?: Clerk;
+        }
+    }
 
-	const frontend_api = import.meta.env.PUBLIC_CLERK_TOKEN;
+    const frontend_api = import.meta.env.PUBLIC_CLERK_TOKEN;
 
-	const script = document.createElement("script");
-	script.setAttribute("data-clerk-frontend-api", frontend_api);
-	script.async = true;
-	script.src = `https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js`;
-	script.crossOrigin = "anonymous";
-	script.addEventListener("load", async function () {
-		if (window.Clerk) {
-			await window.Clerk.load({});
-			if (window.Clerk.user) {
-				const user_div = document.getElementById(
-					"clerk-user",
-				)! as HTMLDivElement;
-				window.Clerk.mountUserButton(user_div);
+    const script = document.createElement("script");
+    script.setAttribute("data-clerk-frontend-api", frontend_api);
+    script.async = true;
+    script.src = `https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js`;
+    script.crossOrigin = "anonymous";
+    script.addEventListener("load", async function () {
+        if (window.Clerk) {
+            await window.Clerk.load({});
+            if (window.Clerk.user) {
+                const user_div = document.getElementById(
+                    "clerk-user",
+                )! as HTMLDivElement;
+                window.Clerk.mountUserButton(user_div);
 
-				document.getElementById("applink")!.hidden = false;
-				document.getElementById("signup")!.hidden = true;
-				document.getElementById("signin")!.hidden = true;
-			}
-		}
-	});
-	document.body.appendChild(script);
+                document.getElementById("applink")!.hidden = false;
+                document.getElementById("signup")!.hidden = true;
+                document.getElementById("signin")!.hidden = true;
+            }
+        }
+    });
+    document.body.appendChild(script);
 </script>
 
 <style>
-	main {
-		margin: auto;
-		padding: 1rem;
-		width: 800px;
-		max-width: calc(100% - 2rem);
-		color: white;
-		font-size: 20px;
-		line-height: 1.6;
-	}
-	.astro-a {
-		position: absolute;
-		top: -32px;
-		left: 50%;
-		transform: translatex(-50%);
-		width: 220px;
-		height: auto;
-		z-index: -1;
-	}
-	h1 {
-		font-size: 4rem;
-		font-weight: 700;
-		line-height: 1;
-		text-align: center;
-		margin-bottom: 1em;
-	}
-	.text-gradient {
-		background-image: var(--accent-gradient);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-size: 400%;
-		background-position: 0%;
-	}
-	.instructions {
-		margin-bottom: 2rem;
-		border: 1px solid rgba(var(--accent-light), 25%);
-		background: linear-gradient(
-			rgba(var(--accent-dark), 66%),
-			rgba(var(--accent-dark), 33%)
-		);
-		padding: 1.5rem;
-		border-radius: 8px;
-	}
-	.instructions code {
-		font-size: 0.8em;
-		font-weight: bold;
-		background: rgba(var(--accent-light), 12%);
-		color: rgb(var(--accent-light));
-		border-radius: 4px;
-		padding: 0.3em 0.4em;
-	}
-	.instructions strong {
-		color: rgb(var(--accent-light));
-	}
-	.link-card-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(24ch, 1fr));
-		gap: 2rem;
-		padding: 0;
-	}
+    main {
+        margin: auto;
+        padding: 1rem;
+        width: 800px;
+        max-width: calc(100% - 2rem);
+        color: white;
+        font-size: 20px;
+        line-height: 1.6;
+    }
+    .astro-a {
+        position: absolute;
+        top: -32px;
+        left: 50%;
+        transform: translatex(-50%);
+        width: 220px;
+        height: auto;
+        z-index: -1;
+    }
+    h1 {
+        font-size: 4rem;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        margin-bottom: 1em;
+    }
+    .text-gradient {
+        background-image: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-size: 400%;
+        background-position: 0%;
+    }
+    .instructions {
+        margin-bottom: 2rem;
+        border: 1px solid rgba(var(--accent-light), 25%);
+        background: linear-gradient(
+            rgba(var(--accent-dark), 66%),
+            rgba(var(--accent-dark), 33%)
+        );
+        padding: 1.5rem;
+        border-radius: 8px;
+    }
+    .instructions code {
+        font-size: 0.8em;
+        font-weight: bold;
+        background: rgba(var(--accent-light), 12%);
+        color: rgb(var(--accent-light));
+        border-radius: 4px;
+        padding: 0.3em 0.4em;
+    }
+    .instructions strong {
+        color: rgb(var(--accent-light));
+    }
+    .link-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(24ch, 1fr));
+        gap: 2rem;
+        padding: 0;
+    }
 </style>

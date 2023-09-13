@@ -10,11 +10,13 @@ const ClerkUser = z.object({
     first_name: z.string(),
     last_name: z.string(),
     username: z.string(),
-  });
+});
 
 export type ClerkUser = z.infer<typeof ClerkUser>;
-  
-export async function currentUser(cookies: AstroCookies): Promise<ClerkUser | null> {
+
+export async function currentUser(
+    cookies: AstroCookies,
+): Promise<ClerkUser | null> {
     const cookie = cookies.get("__session");
     if (cookie && cookie.value) {
         const token = cookie.value;
@@ -28,7 +30,7 @@ export async function currentUser(cookies: AstroCookies): Promise<ClerkUser | nu
             if (e instanceof errors.JWTExpired) {
                 // todo: refresh token
             } else {
-                console.error(e)
+                console.error(e);
             }
         }
     }
