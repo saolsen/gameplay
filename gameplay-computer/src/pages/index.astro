@@ -3,11 +3,15 @@ import Layout from "../layouts/Layout.astro";
 import Card from "../components/Card.astro";
 
 import { currentUser } from "../auth";
+import { db } from "../db";
+import { sql } from "drizzle-orm";
 
 const user = await currentUser(Astro.cookies);
 /* if (!user) {
 	return Astro.redirect(`/refresh?next=${Astro.request.url}`);
 } */
+
+console.log(await db.execute(sql`select 1 as hello`));
 ---
 
 <Layout title="Welcome to Astro.">
