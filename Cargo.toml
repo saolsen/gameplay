@@ -2,5 +2,6 @@
 
 members = [
     "gameplay",
-    "gameplay-cli"
+    "gameplay-cli",
+    "gameplay-computer",
 ]

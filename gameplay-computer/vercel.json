@@ -1,0 +1,10 @@
+{
+  "rewrites": [
+    {"source":  "/:path", "destination": "/api/:path"}
+  ],
+  "functions": {
+    "api/**/*.rs": {
+      "runtime": "vercel-rust@4.0.6"
+    }
+  }
+}
