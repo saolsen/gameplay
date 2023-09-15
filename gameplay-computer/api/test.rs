@@ -7,6 +7,9 @@ async fn main() -> Result<(), Error> {
 }
 
 pub async fn handler(_req: Request) -> Result<Response<Body>, Error> {
+    eprintln!("Does this actually log stuff?");
+    println!("Seems like it!");
+
     Ok(Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "application/json")
