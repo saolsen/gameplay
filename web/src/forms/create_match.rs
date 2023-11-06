@@ -20,7 +20,7 @@ impl CreateMatchOptions {
     }
     pub fn agents(_auth_user: &types::UserRecord, _conn: &types::Conn) -> Self {
         // todo: query db for agents
-        Self::Agent(vec!["steve/random".to_string(), "gabe/mcts".to_string()])
+        Self::Agent(vec!["steve/mcts".to_string()])
     }
 }
 

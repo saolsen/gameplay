@@ -20,6 +20,9 @@ mod web;
 
 #[tokio::main]
 async fn main() {
+    // TODO: Figure out how to make this work with our sentry tracing.
+    //console_subscriber::init();
+
     config::load();
 
     let env = match config::SENTRY_ENV.as_str() {
@@ -53,22 +56,13 @@ async fn main() {
         .with(sentry_tracing::layer())
         .with(local_layer);
 
+    // note: turn off if enabling the tokio-console
     tracing::subscriber::set_global_default(subscriber).expect("setting global default failed");
 
     let state = Arc::new(web::AppState::new());
 
     // todo: Router should go in web.rs
     let app = Router::new()
-        .route(
-            "/style.css",
-            get(|| async {
-                (
-                    StatusCode::OK,
-                    [(header::CONTENT_TYPE, "text/css")],
-                    web::CSS,
-                )
-            }),
-        )
         .route("/health", get(web::health))
         .route("/refresh", get(web::refresh))
         .route("/", get(web::root))
@@ -96,6 +90,10 @@ async fn main() {
             get(web::connect4_match),
         )
         .route(
+            "/app/games/connect4/matches/:match_id/updates",
+            get(web::connect4_match_updates),
+        )
+        .route(
             "/app/games/connect4/matches/:match_id/turns/create_turn",
             post(web::connect4_match_create_turn),
         )
@@ -103,10 +101,10 @@ async fn main() {
         //     "/qstash/callbacks/validate_agent",
         //     post(web::validate_agent_callback),
         // )
-        // .route(
-        //     "/qstash/callbacks/agent_turn",
-        //     post(web::agent_turn_callback),
-        // )
+        .route(
+            "/qstash/agent_turn_callback",
+            post(web::agent_turn_callback),
+        )
         .with_state(state)
         .layer(
             tower_http::trace::TraceLayer::new_for_http()

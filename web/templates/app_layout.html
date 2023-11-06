@@ -16,32 +16,34 @@
 <body>
   <div class="sidebar-layout">
     <header>
-      <ul role="list">
-        <li><a href="/app">Dashboard</a></li>
-        <li>
-          <button type="button">Me</button>
-          <ul role="list" class="margin">
-            <li>
-              <a href="/app/me">My Profile</a>
-            </li>
-            <li>
-              <a href="/app/me/matches">My Matches</a>
-            </li>
-            <li class="block">
-              <a href="/app/me/agents">My Agents</a>
-            </li>
-          </ul>
-        </li>
-        <li>
-          <a href="/app/games">Games</a>
-        </li>
-        <li>
-          <a href="/app/users">Users</a>
-        </li>
-        <li>
-          <a href="/app/agents">Agents</a>
-        </li>
-      </ul>
+      <nav>
+        <ul role="list">
+          <li><a href="/app">Dashboard</a></li>
+          <li>
+            <a href="/app/me">My Profile</a>
+            <ul role="list" class="margin">
+              <li>
+                <a href="/app/me/matches">My Matches</a>
+              </li>
+              <li class="block">
+                <a href="/app/me/agents">My Agents</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="/app/games">Games</a>
+          </li>
+          <li>
+            <a href="/app/users">Users</a>
+          </li>
+          <li>
+            <a href="/app/agents">Agents</a>
+          </li>
+          <li>
+            <div id="clerk-user"></div>
+          </li>
+        </ul>
+      </nav>
     </header>
     <div id="main-content">
       <main id="main">{% block main %}{% endblock %}</main>
@@ -51,7 +53,6 @@
   <script src="https://unpkg.com/htmx.org@1.8.6"></script>
   <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
   <script src="https://unpkg.com/htmx.org/dist/ext/debug.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.6.5/flowbite.min.js"></script>
   <script>
     async function loadClerk() {
       await window.Clerk.load()

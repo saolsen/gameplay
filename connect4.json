@@ -1,0 +1,81 @@
+{
+  "id": 123,
+  "game": "connect4",
+  "players": [
+    {
+      "kind": "user",
+      "username": "user1"
+    },
+    {
+      "kind": "agent",
+      "game": "connect4",
+      "username": "user2",
+      "agentname": "agent1"
+    }
+  ],
+  "turns": [
+    {
+      "number": 0,
+      "player": null,
+      "action": null
+    },
+    {
+      "number": 1,
+      "player": 0,
+      "action": {
+        "column": 0
+      }
+    }
+  ],
+  "turn": 0,
+  "status": {
+    "state": "in_progress",
+    "next_player": 1
+  },
+  "state": {
+    "board": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

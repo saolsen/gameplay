@@ -8,10 +8,13 @@ edition = "2021"
 [dependencies]
 askama = { version = "0.12.0", features = ["with-axum"]}
 askama_axum = "0.3.0"
+async-stream = "0.3.5"
 async-trait = "0.1.68"
 axum = { git = "https://github.com/tokio-rs/axum.git" }
 base64 = "0.21.2"
+console-subscriber = "0.1.9"
 cookie = "0.17.0"
+futures = "0.3.28"
 jwt-simple = "0.11.5"
 lazy_static = "1.4.0"
 r2d2 = "0.8.10"

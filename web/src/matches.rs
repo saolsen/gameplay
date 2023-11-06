@@ -1,4 +1,4 @@
-use rusqlite::OptionalExtension;
+use rusqlite::{params, OptionalExtension};
 
 use crate::types;
 
@@ -160,8 +160,97 @@ pub fn get_by_id(
     None
 }
 
-pub fn create(_conn: &types::Conn) {
-    unimplemented!()
+pub enum PlayerId {
+    User(i64),
+    Agent(i64),
+}
+
+pub fn create(
+    conn: &mut types::Conn,
+    created_by_user_id: i64,
+    blue_player: PlayerId,
+    red_player: PlayerId,
+) -> i64 {
+    // New Match
+    let turns: Vec<types::Turn<types::Connect4Action>> = vec![types::Turn {
+        number: 0,
+        player: None,
+        action: None,
+    }];
+    let state = types::Connect4State {
+        board: vec![None; 42],
+    };
+
+    let (blue_player_user_id, blue_player_agent_id) = match blue_player {
+        PlayerId::User(user_id) => (Some(user_id), None),
+        PlayerId::Agent(agent_id) => (None, Some(agent_id)),
+    };
+    let (red_player_user_id, red_player_agent_id) = match red_player {
+        PlayerId::User(user_id) => (Some(user_id), None),
+        PlayerId::Agent(agent_id) => (None, Some(agent_id)),
+    };
+
+    let match_id = {
+        let tx = conn.transaction().unwrap();
+        tx.execute(
+            r#"
+                INSERT INTO match (game, created_by)
+                VALUES (?, ?)
+            "#,
+            params!["connect4", created_by_user_id],
+        )
+        .unwrap();
+        let match_id = tx.last_insert_rowid();
+        tx.execute(
+            r#"
+                INSERT INTO match_player (match_id, number, user_id, agent_id)
+                VALUES (?, ?, ?, ?)
+            "#,
+            params![
+                // blue player
+                match_id,
+                0,
+                blue_player_user_id,
+                blue_player_agent_id,
+            ],
+        )
+        .unwrap();
+        tx.execute(
+            r#"
+                INSERT INTO match_player (match_id, number, user_id, agent_id)
+                VALUES (?, ?, ?, ?)
+            "#,
+            params![
+                // red player
+                match_id,
+                1,
+                red_player_user_id,
+                red_player_agent_id
+            ],
+        )
+        .unwrap();
+        tx.execute(
+            r#"
+                INSERT INTO match_turn (match_id, number, player, action, status, winner, next_player, state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+            params![
+                match_id,
+                turns[0].number,
+                turns[0].player,
+                None::<String>,
+                "in_progress",
+                None::<usize>,
+                Some(0),
+                serde_json::to_string(&state).unwrap(),
+                ],
+        ).unwrap();
+
+        tx.commit().unwrap();
+        match_id
+    };
+
+    match_id
 }
 
 pub fn user_turn(_conn: &types::Conn) {

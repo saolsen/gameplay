@@ -1,9 +1,10 @@
 {% extends "app_layout.html" %}
 {% block main %}
 
-<div id="state">
+<div id="state" hx-ext="sse" sse-connect="/app/games/connect4/matches/{{connect4_match.id}}/updates">
     {% block state %}
-    <div class="f-row flex-wrap:wrap">
+    <div class="f-row flex-wrap:wrap" hx-get="/app/games/connect4/matches/{{connect4_match.id}}" hx-target="#state"
+        hx-trigger="sse:message">
         <section class="box flex-grow:2">
             <h2>Match {{connect4_match.id}}</h2>
             <div>

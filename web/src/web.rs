@@ -1,17 +1,22 @@
 use crate::connect4::Connect4Check;
 use crate::forms::{create_agent, create_match};
+use crate::matches::PlayerId;
 use crate::{config, connect4, matches, migrations, templates, types};
 use askama_axum::IntoResponse as _;
+use async_stream::try_stream;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode, Uri};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::IntoResponse;
 use axum::{Form, Json};
 use base64::Engine;
+use futures::Stream;
 use jwt_simple::algorithms::RS256PublicKey;
 use rusqlite::{params, OptionalExtension};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::sync::Arc;
 use tracing::{info_span, Instrument};
 
@@ -60,8 +65,6 @@ impl AppState {
         }
     }
 }
-
-pub const CSS: &str = include_str!("../output.css");
 
 pub async fn health() -> impl IntoResponse {
     (StatusCode::OK, "OK")
@@ -231,15 +234,13 @@ pub async fn create_agent<'a>(
 
 // note: I'm doing everything in-line to start. It's very tbd what things go in which modules
 // until I see it all laid out. Luckily refactoring is so easy is rust.
-#[tracing::instrument(skip(state))]
 pub async fn connect4_create_match<'a>(
     auth_user: types::UserRecord,
     State(state): State<Arc<AppState>>,
     Form(form): Form<create_match::CreateMatchFormData>,
 ) -> impl IntoResponse {
-    tokio::task::spawn_blocking(move || {
-        let mut conn = state.pool.get().unwrap();
-
+    let mut conn = state.pool.get().unwrap();
+    let (match_id, response) = tokio::task::spawn_blocking(move || {
         let mut blue_error = None;
         let mut red_error = None;
 
@@ -328,92 +329,76 @@ pub async fn connect4_create_match<'a>(
 
         if blue_error.is_some() || red_error.is_some() {
             return (
-                HeaderMap::new(),
-                create_match::CreateMatchForm {
-                    blue: blue_select,
-                    red: red_select,
-                    blue_error,
-                    red_error,
-                }
-                .into_response(),
+                None,
+                (
+                    HeaderMap::new(),
+                    create_match::CreateMatchForm {
+                        blue: blue_select,
+                        red: red_select,
+                        blue_error,
+                        red_error,
+                    }
+                    .into_response(),
+                ),
             );
         }
 
-        let lookup_player = |player_type: &str, player_name: &str| {
-            match player_type {
-                "me" => Ok((
-                    auth_user.id,
-                    types::Player::User(types::User {
-                        username: auth_user.username.clone(),
-                    }),
-                )),
-                "user" => {
-                    if let Some((id, username)) = conn
+        let lookup_player = |player_type: &str, player_name: &str| match player_type {
+            "me" => Ok(PlayerId::User(auth_user.id)),
+            "user" => {
+                if let Some(id) = conn
+                    .query_row(
+                        r#"
+                            SELECT id from user WHERE username = ?;
+                        "#,
+                        [player_name],
+                        |row| {
+                            let id = row.get(0)?;
+                            Ok(id)
+                        },
+                    )
+                    .optional()
+                    .unwrap()
+                {
+                    Ok(PlayerId::User(id))
+                } else {
+                    Err(format!("User {} not found.", player_name))
+                }
+            }
+            "agent" => {
+                if let Some((split_username, split_agentname)) = player_name.split_once('/') {
+                    if let Some(id) = conn
                         .query_row(
                             r#"
-                                SELECT id, username from user WHERE username = ?;
+                                SELECT
+                                    agent.id
+                                FROM agent
+                                JOIN user ON agent.user_id = user.id
+                                WHERE user.username = ?
+                                AND agent.agentname = ?
+                                AND agent.game = 'connect4'
                             "#,
-                            [player_name],
+                            [&split_username, &split_agentname],
                             |row| {
                                 let id = row.get(0)?;
-                                let username = row.get(1)?;
-                                Ok((id, username))
+                                Ok(id)
                             },
                         )
                         .optional()
                         .unwrap()
                     {
-                        Ok((id, types::Player::User(types::User { username })))
-                    } else {
-                        Err(format!("User {} not found.", player_name))
-                    }
-                }
-                "agent" => {
-                    if let Some((split_username, split_agentname)) = player_name.split_once('/') {
-                        if let Some((id, username, agentname)) = conn
-                            .query_row(
-                                r#"
-                                    SELECT
-                                      agent.id,
-                                      user.username,
-                                      agent.agentname
-                                    FROM agent
-                                    JOIN user ON agent.user_id = user.id
-                                    WHERE user.username = ?
-                                    AND agent.agentname = ?
-                                    AND agent.game = 'connect4'
-                                "#,
-                                [&split_username, &split_agentname],
-                                |row| {
-                                    let id = row.get(0)?;
-                                    let username = row.get(1)?;
-                                    let agentname = row.get(2)?;
-                                    Ok((id, username, agentname))
-                                },
-                            )
-                            .optional()
-                            .unwrap()
-                        {
-                            Ok((
-                                id,
-                                types::Player::Agent(types::Agent {
-                                    game: types::Game::Connect4,
-                                    username,
-                                    agentname,
-                                }),
-                            ))
-                        } else {
-                            Err(format!("Agent {} not found.", player_name))
-                        }
+                        Ok(PlayerId::Agent(id))
                     } else {
                         Err(format!("Agent {} not found.", player_name))
                     }
+                } else {
+                    Err(format!("Agent {} not found.", player_name))
                 }
-                _ => unreachable!(),
             }
+            _ => unreachable!(),
         };
 
-        let (blue_player_id, blue_player, red_player_id, red_player) = {
+        let (blue_player, red_player) = {
             let blue_player_result = lookup_player(&form.player_type_1, &form.player_name_1);
             if let Err(e) = &blue_player_result {
                 blue_error = Some(e.clone());
@@ -426,102 +411,26 @@ pub async fn connect4_create_match<'a>(
 
             if blue_error.is_some() || red_error.is_some() {
                 return (
-                    HeaderMap::new(),
-                    create_match::CreateMatchForm {
-                        blue: blue_select,
-                        red: red_select,
-                        blue_error,
-                        red_error,
-                    }
-                    .into_response(),
+                    None,
+                    (
+                        HeaderMap::new(),
+                        create_match::CreateMatchForm {
+                            blue: blue_select,
+                            red: red_select,
+                            blue_error,
+                            red_error,
+                        }
+                        .into_response(),
+                    ),
                 );
             }
 
-            let (blue_player_id, blue_player) = blue_player_result.unwrap();
-            let (red_player_id, red_player) = red_player_result.unwrap();
-            (blue_player_id, blue_player, red_player_id, red_player)
+            let blue_player = blue_player_result.unwrap();
+            let red_player = red_player_result.unwrap();
+            (blue_player, red_player)
         };
 
-        let (blue_player_user_id, blue_player_agent_id) = match &blue_player {
-            types::Player::User(_) => (Some(blue_player_id), None),
-            types::Player::Agent(_) => (None, Some(blue_player_id)),
-        };
-        let (red_player_user_id, red_player_agent_id) = match &red_player {
-            types::Player::User(_) => (Some(red_player_id), None),
-            types::Player::Agent(_) => (None, Some(red_player_id)),
-        };
-
-        // New Match
-        let turns: Vec<types::Turn<types::Connect4Action>> = vec![
-            types::Turn {
-                number: 0,
-                player: None,
-                action: None,
-            }
-        ];
-        let state = types::Connect4State {
-            board: vec![None; 42],
-        };
-
-        let match_id = {
-            let tx = conn.transaction().unwrap();
-            tx.execute(
-                r#"
-                    INSERT INTO match (game, created_by)
-                    VALUES (?, ?)
-                "#,
-                params!["connect4", auth_user.id],
-            )
-            .unwrap();
-            let match_id = tx.last_insert_rowid();
-            tx.execute(
-                r#"
-                    INSERT INTO match_player (match_id, number, user_id, agent_id)
-                    VALUES (?, ?, ?, ?)
-                "#,
-                params![
-                    // blue player
-                    match_id,
-                    0,
-                    blue_player_user_id,
-                    blue_player_agent_id,
-                ],
-            )
-                .unwrap();
-            tx.execute(
-                r#"
-                    INSERT INTO match_player (match_id, number, user_id, agent_id)
-                    VALUES (?, ?, ?, ?)
-                "#,
-                params![
-                    // red player
-                    match_id,
-                    1,
-                    red_player_user_id,
-                    red_player_agent_id
-                ],
-            ).unwrap();
-            tx.execute(
-                r#"
-                    INSERT INTO match_turn (match_id, number, player, action, status, winner, next_player, state)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                "#,
-                params![
-                    match_id,
-                    turns[0].number,
-                    turns[0].player,
-                    None::<String>,
-                    "in_progress",
-                    None::<usize>,
-                    Some(0),
-                    serde_json::to_string(&state).unwrap()
-                    ],
-            )
-            .unwrap();
-
-            tx.commit().unwrap();
-            match_id
-        };
+        let match_id = matches::create(&mut conn, auth_user.id, blue_player, red_player);
 
         let form = create_match::CreateMatchForm::default(&auth_user);
         let location =
@@ -529,10 +438,212 @@ pub async fn connect4_create_match<'a>(
 
         let mut headers = HeaderMap::new();
         headers.insert("hx-location", location.to_string().parse().unwrap());
-        (headers, form.into_response())
-    }).instrument(info_span!("create_match_sync"))
+        (Some(match_id), (headers, form.into_response()))
+    })
+    .instrument(info_span!("create_match_sync"))
+    .await
+    .unwrap();
+
+    eprintln!("run ai turns");
+
+    // Schedule AI turn if AI is next.
+    if let Some(match_id) = match_id {
+        tokio::task::spawn(run_ai_turns(state.clone(), match_id));
+    }
+
+    response
+    /*    let conn = state.pool.get().unwrap();
+        if let Some((mat, agent, next_player)) = tokio::task::spawn_blocking(move || {
+            let mat = matches::get_by_id(&conn, match_id).unwrap();
+            match &mat.status {
+                types::Status::Over { .. } => unreachable!(),
+                types::Status::InProgress { next_player } => {
+                    let next_player = next_player.clone();
+                    let player = &mat.players[next_player];
+                    match player {
+                        types::Player::User(_) => (),
+                        types::Player::Agent(agent) => {
+                            // Schedule the agent turn.
+                            let agent = conn
+                                .query_row(
+                                    r#"
+                                    SELECT
+                                      agent.id, agent_http.url
+                                    FROM agent
+                                    JOIN agent_http ON agent_http.agent_id = agent.id
+                                    JOIN user ON user.id = agent.user_id
+                                    WHERE user.username = ?
+                                    AND agent.agentname = ?
+                                    AND agent.game = 'connect4'
+                                "#,
+                                    [&agent.username, &agent.agentname],
+                                    |row| {
+                                        let id: i64 = row.get(0)?;
+                                        let url: String = row.get(1)?;
+                                        Ok((id, url))
+                                    },
+                                )
+                                .unwrap();
+
+                            return Some((mat, agent, next_player));
+                        }
+                    }
+                }
+            }
+            None
+        })
+        .instrument(info_span!("get_agent_request_sync"))
         .await
         .unwrap()
+        {
+            let (agent_id, agent_url) = agent;
+
+            // Call the agent in the background.
+            tokio::spawn(async move {
+                let client = reqwest::Client::new();
+                let resp = client.post(&agent_url).json(&mat).send().await.unwrap();
+                println!("resp {:?}", resp.status());
+                let action =
+                    serde_json::from_slice::<types::Connect4Action>(&resp.bytes().await.unwrap())
+                        .unwrap();
+
+                let result = tokio::task::spawn_blocking(move || {
+                    let conn = state.pool.get().unwrap();
+                    let maybe_match = matches::get_by_id(&conn, match_id);
+
+                    let match_ = match maybe_match {
+                        None => return Err((StatusCode::BAD_REQUEST, "Match not found".to_owned())),
+                        Some(match_) => match_,
+                    };
+
+                    // Get the agent.
+
+                    // Validate the turn.
+                    match &match_.status {
+                        types::Status::Over { .. } => {
+                            return Err((StatusCode::BAD_REQUEST, "Match is over".to_owned()))
+                        }
+                        types::Status::InProgress { next_player } => {
+                            if *next_player != params.player {
+                                return Err((StatusCode::BAD_REQUEST, "Not your turn".to_owned()));
+                            }
+
+                            let player = &match_.players[*next_player];
+                            match player {
+                                types::Player::User(user) => {
+            /*                         if user.username != auth_user.username {
+                                        return Err((StatusCode::BAD_REQUEST, "Not your turn".to_owned()));
+                                        */
+                                        ()
+                                }
+                                types::Player::Agent(_) => {
+                                    //return Err((StatusCode::BAD_REQUEST, "Not your turn".to_owned()));
+                                    ()
+                                }
+                            }
+                        }
+                    };
+
+                    // Run the logic for the turn.
+                    let mut state = match_.state;
+                    if let Err(error) = connect4::apply_action(&mut state, &action, params.player) {
+                        return Err((StatusCode::BAD_REQUEST, error.to_string()));
+                    }
+
+                    // Check for win
+                    let check = connect4::check(&state);
+                    let (status, winner, next_player) = match check {
+                        Connect4Check::Winner(player) => {
+                            ("over", Some(player), None)
+                        },
+                        Connect4Check::Tie => {
+                            ("over", None, None)
+                        },
+                        Connect4Check::InProgress => {
+                            ("in_progress", None, Some((params.player + 1) % 2))
+                        },
+                    };
+
+                    // Insert the turn, if the turn number already exists that means the turn was already taken.
+                    let turn_number = match_.turn + 1;
+                    let insert_result = conn.execute(
+                        r#"
+                            INSERT INTO match_turn (match_id, number, player, action, status, winner, next_player, state)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        "#,
+                        params![
+                                params.match_id,
+                                turn_number,
+                                params.player,
+                                serde_json::to_string(&action).unwrap(),
+                                status,
+                                winner,
+                                next_player,
+                                serde_json::to_string(&state).unwrap()
+                                ],
+                    );
+                    if let Err(rusqlite::Error::SqliteFailure(error, _)) = insert_result {
+                        if error.code == rusqlite::ErrorCode::ConstraintViolation {
+                            return Err((StatusCode::BAD_REQUEST, "Turn already taken".to_owned()));
+                        } else {
+                            panic!("Unexpected error: {:?}", error)
+                        }
+                    }
+
+                    if let Some(_match) = matches::get_by_id(&conn, params.match_id) {
+                        Ok(_match)
+                    } else {
+                        Err((
+                            StatusCode::NOT_FOUND,
+                            "Match not found".to_owned(),
+                        ))
+                    }
+                })
+                .instrument(info_span!("create_turn_sync"))
+                .await
+                .unwrap();
+            });
+
+            // Call the agent.
+            /* let qstash_client = reqwest::Client::builder()
+                .user_agent("gameplay.computer")
+                .default_headers({
+                    let mut headers = HeaderMap::new();
+                    headers.insert(
+                        "Authorization",
+                        format!("Bearer {}", *config::QSTASH_TOKEN).parse().unwrap(),
+                    );
+                    headers
+                })
+                .build()
+                .unwrap();
+
+            println!("Calling agent! {}", agent_url);
+
+            let resp = qstash_client
+                .post(format!(
+                    "https://qstash.upstash.io/v1/publish/{}",
+                    agent_url
+                ))
+                .header(
+                    "Upstash-Callback",
+                    format!(
+                        "{}/qstash/agent_turn_callback?match_id={}&agent_id={}&player={}",
+                        *config::ROOT_URL,
+                        match_id,
+                        agent_id,
+                        next_player
+                    ),
+                )
+                .json(&mat)
+                .send()
+                .await
+                .unwrap(); */
+
+            //println!("Called Agent {:?}", &resp);
+            //println!("resp {:?}", resp.text().await.unwrap());
+        }
+    } */
 }
 
 #[tracing::instrument(skip(state))]
@@ -588,6 +699,39 @@ pub async fn connect4_match<'a>(
     }
 }
 
+#[tracing::instrument(skip(_state))]
+pub async fn connect4_match_updates(
+    _auth_user: types::UserRecord,
+    State(_state): State<Arc<AppState>>,
+    Path(_match_id): Path<i64>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    // todo: Have this actually get updates when the match is updated. Right now just fires
+    // every second.
+
+    //let mut receiver = state.event_stream.subscribe();
+
+    Sse::new(try_stream! {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            let event = Event::default().data("hello".to_owned());
+            yield event;
+            /* match receiver.recv().await {
+                Ok(i) => {
+                    let event = Event::default()
+                        .data(i);
+
+                    yield event;
+                },
+
+                Err(e) => {
+                    tracing::error!(error = ?e, "Failed to get");
+                }
+            } */
+        }
+    })
+    .keep_alive(KeepAlive::default())
+}
+
 #[derive(Deserialize, Debug)]
 pub struct CreateTurnFormData {
     pub player: usize,
@@ -601,8 +745,8 @@ pub async fn connect4_match_create_turn<'a>(
     Path(match_id): Path<i64>,
     Form(form): Form<CreateTurnFormData>,
 ) -> impl IntoResponse {
+    let conn = state.pool.get().unwrap();
     let result = tokio::task::spawn_blocking(move || {
-        let conn = state.pool.get().unwrap();
         let maybe_match = matches::get_by_id(&conn, match_id);
 
         let match_ = match maybe_match {
@@ -696,6 +840,11 @@ pub async fn connect4_match_create_turn<'a>(
     .await
     .unwrap();
 
+    // todo: Notify match update so listeners can refresh.
+
+    // Schedule AI turn if AI is next.
+    tokio::task::spawn(run_ai_turns(state.clone(), match_id));
+
     match result {
         Ok(match_) => {
             let template = templates::Connect4Match {
@@ -706,6 +855,234 @@ pub async fn connect4_match_create_turn<'a>(
         }
         Err((status, body)) => (status, askama_axum::IntoResponse::into_response(body)),
     }
+}
+
+// Runs AI turns
+async fn run_ai_turns(state: Arc<AppState>, match_id: i64) {
+    println!("run_ai_turns");
+    let conn = state.pool.get().unwrap();
+
+    let mut clients = HashMap::<i64, reqwest::Client>::new();
+
+    // Get the match.
+    let mut mat = matches::get_by_id(&conn, match_id).unwrap();
+    loop {
+        if let types::Status::InProgress { next_player } = &mat.status {
+            let player = &mat.players[*next_player];
+            if let types::Player::Agent(agent) = &player {
+                // Schedule the agent turn.
+                let (agent_id, agent_url) = conn
+                    .query_row(
+                        r#"
+                        SELECT
+                            agent.id, agent_http.url
+                        FROM agent
+                        JOIN agent_http ON agent_http.agent_id = agent.id
+                        JOIN user ON user.id = agent.user_id
+                        WHERE user.username = ?
+                        AND agent.agentname = ?
+                        AND agent.game = 'connect4'
+                    "#,
+                        [&agent.username, &agent.agentname],
+                        |row| {
+                            let id: i64 = row.get(0)?;
+                            let url: String = row.get(1)?;
+                            Ok((id, url))
+                        },
+                    )
+                    .unwrap();
+
+                let client = clients
+                    .entry(agent_id)
+                    .or_insert_with(|| reqwest::Client::new());
+                let resp = client.post(&agent_url).json(&mat).send().await.unwrap();
+                //println!("resp {:?}", resp.status());
+                let action =
+                    serde_json::from_slice::<types::Connect4Action>(&resp.bytes().await.unwrap())
+                        .unwrap();
+                //println!("action {:?}", &action);
+
+                // Run the logic for the turn.
+                let mut state = mat.state;
+                if let Err(error) = connect4::apply_action(&mut state, &action, *next_player) {
+                    todo!("Bad Action");
+                }
+
+                // Check for win
+                let check = connect4::check(&state);
+                let current_player = next_player;
+                let (status, winner, next_player) = match check {
+                    Connect4Check::Winner(player) => ("over", Some(player), None),
+                    Connect4Check::Tie => ("over", None, None),
+                    Connect4Check::InProgress => ("in_progress", None, Some((next_player + 1) % 2)),
+                };
+
+                // Insert the turn, if the turn number already exists that means the turn was already taken.
+                let turn_number = mat.turn + 1;
+                let insert_result = conn.execute(
+                r#"
+                    INSERT INTO match_turn (match_id, number, player, action, status, winner, next_player, state)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                "#,
+                params![
+                        match_id,
+                        turn_number,
+                        current_player,
+                        serde_json::to_string(&action).unwrap(),
+                        status,
+                        winner,
+                        next_player,
+                        serde_json::to_string(&state).unwrap()
+                        ],
+            );
+                if let Err(rusqlite::Error::SqliteFailure(error, _)) = insert_result {
+                    if error.code == rusqlite::ErrorCode::ConstraintViolation {
+                        todo!("Turn already taken");
+                    } else {
+                        panic!("Unexpected error: {:?}", error)
+                    }
+                }
+
+                mat = matches::get_by_id(&conn, match_id).unwrap();
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AgentTurnCallbackParams {
+    pub match_id: i64,
+    pub agent_id: i64,
+    pub player: usize,
+}
+
+#[tracing::instrument(skip(state))]
+pub async fn agent_turn_callback<'a>(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Query(params): Query<AgentTurnCallbackParams>,
+    Json(payload): Json<QStashCallback>,
+) -> impl IntoResponse {
+    // TODO: Validate the request came from qstash!
+
+    eprintln!("agent turn callback");
+    eprintln!("params: {:?}", params);
+    eprintln!("headers: {:?}", headers);
+    eprintln!("payload: {:?}", payload);
+
+    let body = base64::engine::general_purpose::STANDARD
+        .decode(payload.body)
+        .unwrap();
+    eprintln!("body: {:?}", &body);
+
+    let action = serde_json::from_slice::<types::Connect4Action>(&body).unwrap();
+
+    eprintln!("action: {:?}", &action);
+
+    let conn = state.pool.get().unwrap();
+    let result = tokio::task::spawn_blocking(move || {
+        let maybe_match = matches::get_by_id(&conn, params.match_id);
+
+        let match_ = match maybe_match {
+            None => return Err((StatusCode::BAD_REQUEST, "Match not found".to_owned())),
+            Some(match_) => match_,
+        };
+
+        // Get the agent.
+
+        // Validate the turn.
+        match &match_.status {
+            types::Status::Over { .. } => {
+                return Err((StatusCode::BAD_REQUEST, "Match is over".to_owned()))
+            }
+            types::Status::InProgress { next_player } => {
+                if *next_player != params.player {
+                    return Err((StatusCode::BAD_REQUEST, "Not your turn".to_owned()));
+                }
+
+                let player = &match_.players[*next_player];
+                match player {
+                    types::Player::User(user) => {
+/*                         if user.username != auth_user.username {
+                            return Err((StatusCode::BAD_REQUEST, "Not your turn".to_owned()));
+                         */
+                         ()
+                    }
+                    types::Player::Agent(_) => {
+                        //return Err((StatusCode::BAD_REQUEST, "Not your turn".to_owned()));
+                        ()
+                    }
+                }
+            }
+        };
+
+        // Run the logic for the turn.
+        let mut state = match_.state;
+        if let Err(error) = connect4::apply_action(&mut state, &action, params.player) {
+            return Err((StatusCode::BAD_REQUEST, error.to_string()));
+        }
+
+        // Check for win
+        let check = connect4::check(&state);
+        let (status, winner, next_player) = match check {
+            Connect4Check::Winner(player) => {
+                ("over", Some(player), None)
+            },
+            Connect4Check::Tie => {
+                ("over", None, None)
+            },
+            Connect4Check::InProgress => {
+                ("in_progress", None, Some((params.player + 1) % 2))
+            },
+        };
+
+        // Insert the turn, if the turn number already exists that means the turn was already taken.
+        let turn_number = match_.turn + 1;
+        let insert_result = conn.execute(
+            r#"
+                INSERT INTO match_turn (match_id, number, player, action, status, winner, next_player, state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+            params![
+                    params.match_id,
+                    turn_number,
+                    params.player,
+                    serde_json::to_string(&action).unwrap(),
+                    status,
+                    winner,
+                    next_player,
+                    serde_json::to_string(&state).unwrap()
+                    ],
+        );
+        if let Err(rusqlite::Error::SqliteFailure(error, _)) = insert_result {
+            if error.code == rusqlite::ErrorCode::ConstraintViolation {
+                return Err((StatusCode::BAD_REQUEST, "Turn already taken".to_owned()));
+            } else {
+                panic!("Unexpected error: {:?}", error)
+            }
+        }
+
+        if let Some(_match) = matches::get_by_id(&conn, params.match_id) {
+            Ok(_match)
+        } else {
+            Err((
+                StatusCode::NOT_FOUND,
+                "Match not found".to_owned(),
+            ))
+        }
+    })
+    .instrument(info_span!("create_turn_sync"))
+    .await
+    .unwrap();
+
+    // TODO: notify for the match so watchers see the turn come in.
+    // TODO: Schedule the next turn if it's also an AI turn.
+
+    "took turn"
 }
 
 #[tracing::instrument(skip(app_layout, _state))]
